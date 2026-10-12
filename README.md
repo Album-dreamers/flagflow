@@ -9,6 +9,12 @@ Overview
 
 Client supports Python >=3.9.
 
+Resilience options of the managers:
+
+- ``stream=True`` (``HttpxManager`` only): changes are pushed by the server
+  over SSE and synced right away; polling every ``refresh_interval`` seconds
+  stays as a fallback.
+
 Installation
 ------------
 

@@ -15,7 +15,7 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-httpx = ["httpx~=0.25"]
+httpx = ["httpx~=0.25", "httpx-sse~=0.4"]
 aiohttp = ["aiohttp~=3.10"]
 requests = ["requests~=2.32"]
 
@@ -51,6 +51,7 @@ test = [
     "tox-pdm==0.7.0",
     "protobuf<4.0.0",
     "httpx>=0.25",
+    "httpx-sse>=0.4",
     "aiohttp>=3.10",
     "requests>=2.32",
 ]

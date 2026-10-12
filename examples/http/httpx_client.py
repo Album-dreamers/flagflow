@@ -18,6 +18,8 @@ async def on_start(app):
         defaults=flags.Defaults,
         request_timeout=5,
         refresh_interval=10,
+        # changes are pushed over SSE, polling stays as a fallback
+        stream=True,
     )
     app["ff_client"] = FeatureFlagsClient(app["ff_manager"])
 
