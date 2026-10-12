@@ -1,6 +1,9 @@
+import asyncio
+
 import pytest
 from sqlalchemy import select
 
+from featureflags.http.repositories import flags as flags_module
 from featureflags.http.repositories.flags import FlagsRepository
 from featureflags.http.types import PreloadFlagsRequest, SyncFlagsRequest
 from featureflags.models import Flag, Project
@@ -142,3 +145,45 @@ async def test_sync_empty_diff_until_version_bump(
     )
     assert response.version == 1
     assert [f.name for f in response.flags] == [flag.name]
+
+
+@pytest.mark.asyncio
+async def test_syncs_to_the_same_version_build_flags_once(
+    flags_repo, db_engine, monkeypatch
+):
+    # after a change every client syncs at once; build the state once
+    project = await mk_project(db_engine, version=2)
+    flag = await mk_flag(db_engine, project=project, enabled=True)
+    builds = []
+    build = flags_module.exec_denormalize_graph
+
+    async def counting_build(**kwargs):
+        builds.append(kwargs["query"])
+        return await build(**kwargs)
+
+    monkeypatch.setattr(flags_module, "exec_denormalize_graph", counting_build)
+
+    responses = await asyncio.gather(
+        *(
+            flags_repo.sync(SyncFlagsRequest(project=project.name, version=1))
+            for _ in range(20)
+        )
+    )
+    assert len(builds) == 1
+    assert all([f.name for f in r.flags] == [flag.name] for r in responses)
+
+    # the next version is built again, with the new data
+    other = await mk_flag(db_engine, project=project, enabled=True)
+    async with db_engine.acquire() as conn:
+        await conn.execute(
+            Project.__table__.update()
+            .where(Project.id == project.id)
+            .values({Project.version: 3})
+        )
+    response = await flags_repo.sync(
+        SyncFlagsRequest(project=project.name, version=2)
+    )
+    assert len(builds) == 2
+    assert sorted(f.name for f in response.flags) == sorted(
+        [flag.name, other.name]
+    )

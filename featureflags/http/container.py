@@ -31,7 +31,8 @@ class Container(containers.DeclarativeContainer):
     )
 
     # Repos
-    flags_repo = providers.Factory(
+    # a singleton, so all requests share its cache of project states
+    flags_repo = providers.Singleton(
         FlagsRepository,
         db_engine=db_engine,
         graph_engine=graph_engine,

@@ -1,4 +1,5 @@
 import aiopg.sa
+from async_lru import alru_cache
 from hiku.builder import Q, build
 from hiku.engine import Engine
 from hiku.query import Node as QueryNode
@@ -83,6 +84,26 @@ class FlagsRepository:
         self._db_engine = db_engine
         self._graph_engine = graph_engine
         self._readonly = readonly
+        # After a change every client syncs to the same version at once:
+        # build its flags once (concurrent requests share the build).
+        # Entries never go stale: a version is read before its flags, so an
+        # entry can only hold newer data than its key. Registering a flag
+        # doesn't bump the version and may be missing from an entry, which
+        # clients treat the same (an unconfigured flag uses the default).
+        self._project_state = alru_cache(maxsize=256)(self._load_project_state)
+
+    async def _load_project_state(
+        self, project: str, version: int
+    ) -> tuple[list[Flag], list[Value]]:
+        result = await exec_denormalize_graph(
+            graph_engine=self._graph_engine,
+            query=load_data_query(project),
+            db_engine=self._db_engine,
+            session=user_session.get(),
+        )
+        flags = [Flag(**flag) for flag in result["flags"]]
+        values = [Value(**value) for value in result["values"]]
+        return flags, values
 
     async def get_project_version(self, project: str) -> int | None:
         async with self._db_engine.acquire() as conn:
@@ -127,14 +148,9 @@ class FlagsRepository:
             # Serve an empty but valid state instead of failing.
             return PreloadFlagsResponse(version=0)
 
-        result = await exec_denormalize_graph(
-            graph_engine=self._graph_engine,
-            query=load_data_query(request.project),
-            db_engine=self._db_engine,
-            session=user_session.get(),
+        flags, values = await self._project_state(
+            request.project, current_version
         )
-        flags = [Flag(**flag) for flag in result["flags"]]
-        values = [Value(**value) for value in result["values"]]
 
         return PreloadFlagsResponse(
             flags=flags,
@@ -154,14 +170,9 @@ class FlagsRepository:
             return SyncFlagsResponse(version=0)
 
         if request.version != current_version:
-            result = await exec_denormalize_graph(
-                graph_engine=self._graph_engine,
-                query=load_data_query(request.project),
-                db_engine=self._db_engine,
-                session=user_session.get(),
+            flags, values = await self._project_state(
+                request.project, current_version
             )
-            flags = [Flag(**flag) for flag in result["flags"]]
-            values = [Value(**value) for value in result["values"]]
         else:
             # Don't load flags and values if version is the same.
             flags = []
