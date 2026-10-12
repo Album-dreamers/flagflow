@@ -20,7 +20,7 @@ from featureflags_client.http.conditions import (
     wildcard,
 )
 from featureflags_client.http.types import Operator
-from featureflags_client.http.utils import hash_flag_value
+from featureflags_client.http.utils import rollout_bucket
 
 TEST_OPERATOR_NAME = "test_operator"
 TEST_VARIABLE_NAME = "test_operator"
@@ -109,9 +109,9 @@ def test_percent():
     assert check_op("foo", percent, 0) is False
 
     # Check hash comparison
-    foo_hash = hash_flag_value(TEST_VARIABLE_NAME, "foo")
-    assert check_op("foo", percent, foo_hash % 100 + 1) is True
-    assert check_op("foo", percent, foo_hash % 100 - 1) is False
+    foo_bucket = rollout_bucket("", "foo")
+    assert check_op("foo", percent, (foo_bucket + 1) / 100) is True
+    assert check_op("foo", percent, foo_bucket / 100) is False
 
 
 def test_regexp():

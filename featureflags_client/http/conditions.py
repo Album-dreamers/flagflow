@@ -3,7 +3,7 @@ import re
 from typing import Any, Callable, Optional, Union
 
 from featureflags_client.http.types import Check, Flag, Operator, Value
-from featureflags_client.http.utils import hash_flag_value
+from featureflags_client.http.utils import ROLLOUT_BUCKETS, rollout_bucket
 
 log = logging.getLogger(__name__)
 
@@ -76,15 +76,16 @@ def contains(name: str, value: Any) -> Callable:
     return proc
 
 
-def percent(name: str, value: Any) -> Callable:
+def percent(name: str, value: Any, seed: str = "") -> Callable:
     @except_false
     def proc(ctx: dict[str, Any]) -> bool:
         ctx_val = ctx.get(name, _UNDEFINED)
         if ctx_val is _UNDEFINED:
             return False
 
-        hash_ctx_val = hash_flag_value(name, ctx_val)
-        return hash_ctx_val % 100 < int(value)
+        # value is a percent with up to two decimals: 12.5 -> 1250 buckets
+        threshold = round(float(value) * ROLLOUT_BUCKETS / 100)
+        return rollout_bucket(seed, ctx_val) < threshold
 
     return proc
 
@@ -147,10 +148,13 @@ OPERATIONS_MAP: dict[Operator, Callable[..., Callable[..., bool]]] = {
 }
 
 
-def check_proc(check: Check) -> Callable:
+def check_proc(check: Check, seed: str = "") -> Callable:
     if check.value is None:
         log.debug(f"Check[{check}].value is None")
         return false
+
+    if check.operator is Operator.PERCENT:
+        return percent(check.variable.name, check.value, seed)
 
     return OPERATIONS_MAP[check.operator](check.variable.name, check.value)
 
@@ -165,7 +169,9 @@ def flag_proc(flag: Flag) -> Optional[Callable]:
 
     conditions = []
     for condition in flag.conditions:
-        checks_procs = [check_proc(check) for check in condition.checks]
+        checks_procs = [
+            check_proc(check, flag.name) for check in condition.checks
+        ]
 
         # in case of invalid condition it would be safe to replace it
         # with a falsish condition
@@ -229,7 +235,9 @@ def value_proc(value: Value) -> Union[Callable[..., Union[int, str]]]:
 
     conditions = []
     for condition in value.conditions:
-        checks_procs = [check_proc(check) for check in condition.checks]
+        checks_procs = [
+            check_proc(check, value.name) for check in condition.checks
+        ]
 
         # in case of invalid condition it would be safe to replace it
         # with a falsish condition

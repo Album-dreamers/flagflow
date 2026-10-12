@@ -1,6 +1,4 @@
-import hashlib
 import inspect
-import struct
 from collections.abc import Generator, Mapping
 from enum import Enum, EnumMeta
 from typing import Any, Union
@@ -86,7 +84,26 @@ def intervals_gen(
             retry_interval = min(retry_interval * 2, retry_interval_max)
 
 
-def hash_flag_value(name: str, value: Any) -> int:
-    hash_digest = hashlib.md5(f"{name}{value}".encode()).digest()  # noqa: S324
-    (hash_int,) = struct.unpack("<L", hash_digest[-4:])
-    return hash_int
+ROLLOUT_BUCKETS = 10_000
+
+
+def fnv1a32(s: str) -> int:
+    # Ported from growthbook-python (MIT), growthbook/core.py.
+    hval = 0x811C9DC5
+    if s.isascii():
+        for b in s.encode():
+            hval = ((hval ^ b) * 0x01000193) & 0xFFFFFFFF
+    else:
+        for ch in s:
+            hval = ((hval ^ ord(ch)) * 0x01000193) & 0xFFFFFFFF
+    return hval
+
+
+def rollout_bucket(seed: str, value: Any) -> int:
+    """
+    Stable bucket in [0, ROLLOUT_BUCKETS) for a context value.
+
+    Same as GrowthBook's gbhash v2. The seed is the flag or value name,
+    so different flags on the same variable pick different users.
+    """
+    return fnv1a32(str(fnv1a32(f"{seed}{value}"))) % ROLLOUT_BUCKETS
