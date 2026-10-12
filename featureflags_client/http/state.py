@@ -63,7 +63,8 @@ class HttpState(BaseState):
         values: list[Value],
         version: int,
     ) -> None:
-        if self.version != version:
+        # Only move forward: a late response must not roll back the state.
+        if version > self.version:
             self._flags_state = update_flags_state(flags)
             self._values_state = update_values_state(values)
             self.version = version
