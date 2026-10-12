@@ -14,6 +14,9 @@ Resilience options of the managers:
 - ``stream=True`` (``HttpxManager`` only): changes are pushed by the server
   over SSE and synced right away; polling every ``refresh_interval`` seconds
   stays as a fallback.
+- ``snapshot_path="/path/to/flags.json"``: the last state received from the
+  server is saved there (atomically), and ``preload()`` falls back to it when
+  the server can't be reached, instead of using the in-code defaults.
 
 Installation
 ------------

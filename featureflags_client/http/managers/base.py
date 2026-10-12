@@ -7,6 +7,7 @@ from enum import EnumMeta
 from typing import Any, Callable, Optional, Union
 
 from featureflags_client.http.constants import Endpoints
+from featureflags_client.http.snapshot import Snapshot
 from featureflags_client.http.state import HttpState
 from featureflags_client.http.types import (
     PreloadFlagsRequest,
@@ -56,6 +57,7 @@ class BaseManager(ABC):
         ] = None,
         request_timeout: int = 5,
         refresh_interval: int = 60,  # 1 minute.
+        snapshot_path: Optional[str] = None,
     ) -> None:
         self.url = url
         self.defaults = coerce_defaults(defaults)
@@ -77,6 +79,39 @@ class BaseManager(ABC):
         self._int_gen.send(None)
 
         self._next_sync = datetime.utcnow()
+
+        self._snapshot = (
+            Snapshot(snapshot_path, project) if snapshot_path else None
+        )
+
+    def _apply(
+        self, response: Union[PreloadFlagsResponse, SyncFlagsResponse]
+    ) -> None:
+        previous_version = self._state.version
+        self._state.update(response.flags, response.values, response.version)
+        if (
+            self._snapshot is not None
+            and self._state.version > previous_version
+        ):
+            self._snapshot.save(
+                PreloadFlagsResponse(
+                    flags=response.flags,
+                    values=response.values,
+                    version=response.version,
+                )
+            )
+
+    def _restore_snapshot(self) -> bool:
+        """Fall back to the snapshot when the server can't be reached."""
+        response = self._snapshot.load() if self._snapshot else None
+        if response is None:
+            return False
+        self._state.update(response.flags, response.values, response.version)
+        log.warning(
+            "Flags server unavailable, using snapshot of version %s",
+            response.version,
+        )
+        return True
 
     @abstractmethod
     def _post(
@@ -138,15 +173,19 @@ class BaseManager(ABC):
             payload.values,
         )
 
-        response_raw = self._post(
-            url=Endpoints.PRELOAD,
-            payload=asdict(payload, dict_factory=custom_asdict_factory),
-            timeout=self._request_timeout,
-        )
+        try:
+            response_raw = self._post(
+                url=Endpoints.PRELOAD,
+                payload=asdict(payload, dict_factory=custom_asdict_factory),
+                timeout=self._request_timeout,
+            )
+        except Exception:
+            if self._restore_snapshot():
+                return
+            raise
         log.debug("Preload response: %s", response_raw)
 
-        response = PreloadFlagsResponse.from_dict(response_raw)
-        self._state.update(response.flags, response.values, response.version)
+        self._apply(PreloadFlagsResponse.from_dict(response_raw))
 
     def sync(self) -> None:
         payload = SyncFlagsRequest(
@@ -170,8 +209,7 @@ class BaseManager(ABC):
         )
         log.debug("Sync reply: %s", response_raw)
 
-        response = SyncFlagsResponse.from_dict(response_raw)
-        self._state.update(response.flags, response.values, response.version)
+        self._apply(SyncFlagsResponse.from_dict(response_raw))
 
 
 class AsyncBaseManager(BaseManager):
@@ -190,6 +228,7 @@ class AsyncBaseManager(BaseManager):
         ] = None,
         request_timeout: int = 5,
         refresh_interval: int = 10,
+        snapshot_path: Optional[str] = None,
     ) -> None:
         super().__init__(
             url,
@@ -199,6 +238,7 @@ class AsyncBaseManager(BaseManager):
             values_defaults,
             request_timeout,
             refresh_interval,
+            snapshot_path,
         )
         self._refresh_task: Optional[asyncio.Task] = None
 
@@ -246,15 +286,19 @@ class AsyncBaseManager(BaseManager):
             payload.values,
         )
 
-        response_raw = await self._post(
-            url=Endpoints.PRELOAD,
-            payload=asdict(payload, dict_factory=custom_asdict_factory),
-            timeout=self._request_timeout,
-        )
+        try:
+            response_raw = await self._post(
+                url=Endpoints.PRELOAD,
+                payload=asdict(payload, dict_factory=custom_asdict_factory),
+                timeout=self._request_timeout,
+            )
+        except Exception:
+            if self._restore_snapshot():
+                return
+            raise
         log.debug("Preload response: %s", response_raw)
 
-        response = PreloadFlagsResponse.from_dict(response_raw)
-        self._state.update(response.flags, response.values, response.version)
+        self._apply(PreloadFlagsResponse.from_dict(response_raw))
 
     async def sync(self) -> None:  # type: ignore
         payload = SyncFlagsRequest(
@@ -278,8 +322,7 @@ class AsyncBaseManager(BaseManager):
         )
         log.debug("Sync reply: %s", response_raw)
 
-        response = SyncFlagsResponse.from_dict(response_raw)
-        self._state.update(response.flags, response.values, response.version)
+        self._apply(SyncFlagsResponse.from_dict(response_raw))
 
     def start(self) -> None:
         if self._refresh_task is not None:

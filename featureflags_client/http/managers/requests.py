@@ -37,6 +37,7 @@ class RequestsManager(BaseManager):
         ] = None,
         request_timeout: int = 5,
         refresh_interval: int = 10,
+        snapshot_path: Optional[str] = None,
     ) -> None:
         super().__init__(
             url,
@@ -46,6 +47,7 @@ class RequestsManager(BaseManager):
             values_defaults,
             request_timeout,
             refresh_interval,
+            snapshot_path,
         )
         self._session = requests.Session()
         self._session.headers.update({"Content-Type": "application/json"})

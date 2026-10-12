@@ -56,6 +56,7 @@ class HttpxManager(AsyncBaseManager):
         request_timeout: int = 5,
         refresh_interval: int = 10,
         stream: bool = False,
+        snapshot_path: Optional[str] = None,
     ) -> None:
         super().__init__(
             url,
@@ -65,6 +66,7 @@ class HttpxManager(AsyncBaseManager):
             values_defaults,
             request_timeout,
             refresh_interval,
+            snapshot_path,
         )
         self._session = httpx.AsyncClient(base_url=url)
         self._stream = stream

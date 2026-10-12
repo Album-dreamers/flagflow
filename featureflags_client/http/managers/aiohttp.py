@@ -35,6 +35,7 @@ class AiohttpManager(AsyncBaseManager):
         ] = None,
         request_timeout: int = 5,
         refresh_interval: int = 10,
+        snapshot_path: Optional[str] = None,
     ) -> None:
         super().__init__(
             url,
@@ -44,6 +45,7 @@ class AiohttpManager(AsyncBaseManager):
             values_defaults,
             request_timeout,
             refresh_interval,
+            snapshot_path,
         )
         self._session = aiohttp.ClientSession(base_url=url)
 
