@@ -6,7 +6,7 @@ not lost while the listener is reconnecting.
 import asyncio
 import json
 import socket
-from contextlib import asynccontextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
 import aiopg
 import httpx
@@ -230,6 +230,74 @@ async def test_change_during_listener_outage_is_recovered(db_engine):
 
         assert await wait_version(subscription) == 7
         assert hub.listening.is_set()
+
+
+def count_queries(hub, monkeypatch):
+    queries = []
+    fetch = hub._fetch_versions
+
+    async def counting(projects):
+        if projects:
+            queries.append(projects)
+        return await fetch(projects)
+
+    monkeypatch.setattr(hub, "_fetch_versions", counting)
+    return queries
+
+
+async def bump(db_engine, project):
+    async with db_engine.acquire() as conn, conn.begin():
+        await actions.bump_project_versions(Project.id == project.id, conn=conn)
+
+
+async def test_new_streams_use_the_known_version(db_engine, monkeypatch):
+    # thousands of clients connecting must not each query the database
+    project = await mk_project(db_engine, version=3)
+    hub = make_hub(db_engine)
+    queries = count_queries(hub, monkeypatch)
+
+    async with running(hub):
+        async with AsyncExitStack() as stack:
+            subscriptions = await asyncio.gather(
+                *(
+                    stack.enter_async_context(hub.subscribe(project.name, 0))
+                    for _ in range(50)
+                )
+            )
+            for subscription in subscriptions:
+                assert await wait_version(subscription) == 3
+        assert len(queries) == 1
+
+        await bump(db_engine, project)
+        async with hub.subscribe(project.name, 0) as subscription:
+            assert await wait_version(subscription) == 4
+        assert len(queries) == 1
+
+
+async def test_known_versions_are_dropped_on_reconnect(db_engine):
+    project = await mk_project(db_engine, version=3)
+    hub = make_hub(db_engine, reconnect_delay=0.5)
+
+    async with running(hub):
+        async with hub.subscribe(project.name, 0) as subscription:
+            assert await wait_version(subscription) == 3
+
+        async with db_engine.acquire() as conn:
+            await conn.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                    " WHERE query = :listen"
+                ),
+                listen=f"LISTEN {CHANNEL}",
+            )
+        await asyncio.sleep(0.1)
+        assert not hub.listening.is_set()
+        # no subscriber, so nothing reconciles this project on reconnect
+        await set_version(db_engine, project, 7)
+        await asyncio.wait_for(hub.listening.wait(), TIMEOUT)
+
+        async with hub.subscribe(project.name, 0) as subscription:
+            assert await wait_version(subscription) == 7
 
 
 async def test_readonly_hub_polls(db_engine):

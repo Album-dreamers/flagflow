@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Starlette >= 0.49), which also brings Pydantic 2.14 and Uvicorn 0.54.
 - `http` server shutdown waits at most `http.shutdown_timeout` seconds
   (default 5) for in-flight requests.
+- New streams take the project version from memory while the listener is
+  up, instead of each querying the database (with 10k streams connecting,
+  the 10-connection pool timed out and most streams never got an event).
 
 ### Fixed
 - Deleting a flag or value bumps the project version, so clients stop

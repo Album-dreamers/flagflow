@@ -109,6 +109,12 @@ class ProjectVersionHub:
         self._timeout = timeout
         self._subscriptions: dict[str, set[Subscription]] = defaultdict(set)
         self.listening = asyncio.Event()
+        # Latest version per project, kept only while LISTEN is up (every
+        # change then reaches us), so new streams don't each query the
+        # database. Cleared and bumped to a new generation on reconnect.
+        self._versions: dict[str, int] = {}
+        self._generation = 0
+        self._fetches: dict[str, asyncio.Future] = {}
 
     @asynccontextmanager
     async def subscribe(
@@ -124,8 +130,9 @@ class ProjectVersionHub:
         self._subscriptions[project].add(subscription)
         SSE_STREAMS_GAUGE.inc()
         try:
-            for row in await self._fetch_versions([project]):
-                subscription.push(row.version)
+            current = await self._current_version(project)
+            if current is not None:
+                subscription.push(current)
             yield subscription
         finally:
             subscriptions = self._subscriptions[project]
@@ -135,8 +142,38 @@ class ProjectVersionHub:
             SSE_STREAMS_GAUGE.dec()
 
     def publish(self, project: str, version: int) -> None:
+        if self._listen:
+            self._remember(project, version)
         for subscription in self._subscriptions.get(project, ()):
             subscription.push(version)
+
+    def _remember(self, project: str, version: int) -> None:
+        # max: a slow database read must not undo a newer notification
+        if version > self._versions.get(project, -1):
+            self._versions[project] = version
+
+    async def _current_version(self, project: str) -> int | None:
+        if self.listening.is_set() and project in self._versions:
+            return self._versions[project]
+        # streams connecting at once to the same project share one query
+        fetch = self._fetches.get(project)
+        if fetch is None:
+            fetch = asyncio.ensure_future(self._fetch_version(project))
+            self._fetches[project] = fetch
+            fetch.add_done_callback(lambda _: self._fetches.pop(project, None))
+        return await asyncio.shield(fetch)
+
+    async def _fetch_version(self, project: str) -> int | None:
+        generation, listening = self._generation, self.listening.is_set()
+        rows = await self._fetch_versions([project])
+        if not rows:
+            return None
+        version = rows[0].version
+        # read while LISTEN was up the whole time: later changes will be
+        # notified, so it's safe to answer from memory from now on
+        if self._listen and listening and generation == self._generation:
+            self._remember(project, version)
+        return version
 
     async def reconcile(self) -> None:
         for row in await self._fetch_versions(list(self._subscriptions)):
@@ -167,6 +204,8 @@ class ProjectVersionHub:
             except Exception:
                 log.exception("Project version listener failed")
             self.listening.clear()
+            self._versions.clear()
+            self._generation += 1
             LISTENER_RECONNECTS_COUNTER.inc()
             await asyncio.sleep(delay)
             delay = min(delay * 2, self._max_reconnect_delay)
