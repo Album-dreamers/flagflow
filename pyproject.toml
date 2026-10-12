@@ -182,6 +182,10 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
   "DTZ005",
   "DTZ003",
 ]
+"loadtest/*" = [
+  "T201",      # command line scripts report with print
+  "ASYNC230",  # results are written once, at the end
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

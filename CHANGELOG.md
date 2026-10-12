@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `project_version_listener_reconnects_total`.
 - **Optimistic locking**: `saveFlag` / `saveValue` accept the `version` the
   client loaded and reject the save if the flag/value changed since.
+- **Load test** (`loadtest/`): locust users holding SSE streams like the SDK
+  does, with commit-to-client latency reports.
 
 ### Changed
 - `saveFlag`, `resetFlag`, `deleteFlag` and their value counterparts apply
