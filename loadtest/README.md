@@ -29,6 +29,10 @@ loadtest/run.sh 1000 2 10 3
 `RATE` per second, publishes once they are all connected, and prints the
 report.
 
+`FAULT` runs a command between two batches of versions, e.g. restarting
+Postgres (`pg_ctl restart -w`); the clients must still end up at the final
+version.
+
 Modes:
 
 - `LOADTEST_PRELOAD=0 LOADTEST_SYNC=0`: streams only, to measure fan-out

@@ -6,6 +6,10 @@
 # Needs CONFIG_PATH, PGUSER, PGPASS, SECRET for the server (debug off, or
 # SQL echo dominates), LOCUST (path to the locust binary) and OUT (results
 # directory). Writes OUT/{published,recv-*,server}.csv and prints report.py.
+#
+# FAULT: a command run after the first VERSIONS are published and that
+# returns once things are back (e.g. restarting Postgres); VERSIONS more
+# are published after it. FAULT_SECONDS: how long it may take (default 30).
 set -euo pipefail
 
 USERS=$1
@@ -36,7 +40,11 @@ sleep 4
 ) > "$OUT/server.csv" &
 
 SPAWN=$(( USERS / RATE + 5 ))
-RUN=$(( SPAWN + VERSIONS * ${INTERVAL%.*} + 15 ))
+PUBLISHING=$(( VERSIONS * ${INTERVAL%.*} ))
+if [ -n "${FAULT:-}" ]; then
+    PUBLISHING=$(( 2 * PUBLISHING + ${FAULT_SECONDS:-30} ))
+fi
+RUN=$(( SPAWN + PUBLISHING + 15 ))
 LOADTEST_OUT="$OUT" "$LOCUST" -f loadtest/locustfile.py --headless \
     -u "$USERS" -r "$RATE" -t "${RUN}s" --processes "$PROCESSES" \
     -H "http://127.0.0.1:${HTTP_PORT:-8081}" --only-summary \
@@ -46,8 +54,17 @@ LOCUST_PID=$!
 sleep "$SPAWN"
 # worker processes write their recv-*.csv after the master is gone
 WORKERS=$(pgrep -P $LOCUST_PID || true)
-PYTHONPATH=. .venv/bin/python loadtest/publish.py \
-    --count "$VERSIONS" --interval "$INTERVAL" --out "$OUT" > /dev/null
+publish() {
+    PYTHONPATH=. .venv/bin/python loadtest/publish.py \
+        --count "$VERSIONS" --interval "$INTERVAL" --out "$OUT" "$@" > /dev/null
+}
+publish
+if [ -n "${FAULT:-}" ]; then
+    echo "fault at $(date +%T): $FAULT"
+    bash -c "$FAULT"
+    echo "recovered at $(date +%T)"
+    publish --append
+fi
 wait $LOCUST_PID || true
 for pid in $WORKERS; do
     while kill -0 "$pid" 2> /dev/null; do sleep 1; done
@@ -57,4 +74,5 @@ done
 awk -F, 'NR > 1 { if ($2 > rss) rss = $2; cpu += $3; n++ }
     END { printf "server: max RSS %d MB, mean CPU %.0f%%\n", rss, cpu / n }' \
     "$OUT/server.csv"
+echo "listener reconnects: $(grep -c 'Project version listener failed' "$OUT/server.log" || true)"
 grep -E "^(GET|POST) |Aggregated" "$OUT/locust.log" | head -4 || true

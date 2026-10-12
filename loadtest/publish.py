@@ -41,9 +41,12 @@ async def main(args: argparse.Namespace) -> None:
             print(f"published version {version}", flush=True)
             await asyncio.sleep(args.interval)
 
-    with open(os.path.join(args.out, "published.csv"), "w", newline="") as file:
+    path = os.path.join(args.out, "published.csv")
+    append = args.append and os.path.exists(path)
+    with open(path, "a" if append else "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["version", "committed_at"])
+        if not append:
+            writer.writerow(["version", "committed_at"])
         writer.writerows(rows)
 
 
@@ -53,4 +56,9 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=20)
     parser.add_argument("--interval", type=float, default=2.0)
     parser.add_argument("--out", default="loadtest-out")
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="add to published.csv, e.g. around a fault",
+    )
     asyncio.run(main(parser.parse_args()))
