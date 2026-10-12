@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Deleting a flag or value bumps the project version, so clients stop
   evaluating it.
+- **UI**: a signed-out visit rendered a blank page (React error #300):
+  `Base` returned the sign-in redirect before some of its hooks.
 - The index page works on Starlette 1.x (`TemplateResponse` takes the
   request first).
 - A save based on a stale view no longer silently drops conditions while

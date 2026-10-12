@@ -18,10 +18,6 @@ function Base({ children }) {
   const [signOut] = useSignOut();
   const [inputValue, setInputValue] = useState('');
 
-  if (!loading && !auth.authenticated && location.pathname !== '/sign-in') {
-    return <Navigate to='sign-in' replace />
-  }
-
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const tab = queryParams.get('tab') === 'values' ? 'values' : 'flags';
@@ -57,6 +53,12 @@ function Base({ children }) {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  // after all hooks: returning before them renders fewer hooks once auth
+  // loads, which crashes the whole page (React error #300)
+  if (!loading && !auth.authenticated && location.pathname !== '/sign-in') {
+    return <Navigate to='sign-in' replace />
+  }
 
   return (
     <Layout
