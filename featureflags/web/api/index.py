@@ -10,7 +10,4 @@ templates = Jinja2Templates(directory=STATIC_DIR)
 
 @router.get("/", response_model=None)
 async def index(request: Request) -> templates.TemplateResponse:  # type: ignore
-    return templates.TemplateResponse(
-        name="index.html",
-        context={"request": request},
-    )
+    return templates.TemplateResponse(request, "index.html")

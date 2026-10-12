@@ -1,4 +1,6 @@
+import httpx
 import pytest
+from fastapi.templating import Jinja2Templates
 from hiku.endpoint.graphql import AsyncBatchGraphQLEndpoint
 from sqlalchemy import select
 
@@ -20,6 +22,7 @@ from featureflags.tests.state import (
     mk_value,
 )
 from featureflags.utils import select_first
+from featureflags.web.api import index
 
 
 async def check_flag(flag, conn):
@@ -333,9 +336,7 @@ async def test_save_notification_channel_duplicate_name(
 
 
 @pytest.mark.asyncio
-async def test_test_notification_channel_graph(
-    db_engine, graph_engine, ldap
-):
+async def test_test_notification_channel_graph(db_engine, graph_engine, ldap):
     user = await mk_auth_user(db_engine)
     query = {
         "query": """
@@ -637,3 +638,18 @@ async def test_delete_value_dispatches_deleted(db_engine, graph_engine, ldap):
 
     assert result["data"]["deleteValue"]["error"] is None
     assert fake.calls == [("value_deleted", value.name, project.id)]
+
+
+async def test_index_page(app, tmp_path, monkeypatch):
+    # the built UI isn't there in tests, any template exercises the call
+    (tmp_path / "index.html").write_text("<div id=root></div>")
+    monkeypatch.setattr(index, "templates", Jinja2Templates(directory=tmp_path))
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test"
+    ) as client:
+        response = await client.get("/")
+
+    assert response.status_code == 200
+    assert "<div id=root></div>" in response.text
