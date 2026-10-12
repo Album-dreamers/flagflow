@@ -33,6 +33,7 @@ const FLAG_FRAGMENT = gql`
     name
     enabled
     overridden
+    version
     created_timestamp
     reported_timestamp
     project {
@@ -60,8 +61,8 @@ const FLAG_FRAGMENT = gql`
 
 
 export const SAVE_FLAG_MUTATION = gql`
-  mutation SaveFlag($operations: [SaveFlagOperation!]!) {
-    saveFlag(operations: $operations) {
+  mutation SaveFlag($operations: [SaveFlagOperation!]!, $version: Int) {
+    saveFlag(operations: $operations, version: $version) {
       errors
     }
   }
@@ -125,6 +126,7 @@ const VALUE_FRAGMENT = gql`
     overridden
     value_default
     value_override
+    version
     created_timestamp
     reported_timestamp
     project {
@@ -153,8 +155,8 @@ const VALUE_FRAGMENT = gql`
 
 
 export const SAVE_VALUE_MUTATION = gql`
-  mutation SaveValue($operations: [SaveValueOperation!]!) {
-    saveValue(operations: $operations) {
+  mutation SaveValue($operations: [SaveValueOperation!]!, $version: Int) {
+    saveValue(operations: $operations, version: $version) {
       errors
     }
   }

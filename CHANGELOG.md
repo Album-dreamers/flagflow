@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Optimistic locking**: `saveFlag` / `saveValue` accept the `version` the
+  client loaded and reject the save if the flag/value changed since.
+
+### Changed
+- `saveFlag`, `resetFlag`, `deleteFlag` and their value counterparts apply
+  all their writes (rules, version bump, changelog) in one transaction.
+
+### Fixed
+- A save based on a stale view no longer silently drops conditions while
+  reporting success.
+
 ## [2.0.0] - 2026-07-31
 
 ### Added

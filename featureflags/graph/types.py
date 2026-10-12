@@ -187,7 +187,7 @@ class AuthResult(NamedTuple):
 
 
 class SaveFlagResult(NamedTuple):
-    errors: list[str] | None = None
+    errors: tuple[str, ...] | None = None
 
 
 class ResetFlagResult(NamedTuple):
@@ -199,7 +199,7 @@ class DeleteFlagResult(NamedTuple):
 
 
 class SaveValueResult(NamedTuple):
-    errors: list[str] | None = None
+    errors: tuple[str, ...] | None = None
 
 
 class ResetValueResult(NamedTuple):

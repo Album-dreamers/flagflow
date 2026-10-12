@@ -380,6 +380,7 @@ _FlagNode = Node(
         Field("name", None, flag_fq),
         Field("project", None, flag_fq),
         Field("enabled", None, flag_fq),
+        Field("version", None, flag_fq),
         Field("created_timestamp", None, flag_fq),
         Field("reported_timestamp", None, flag_fq),
     ],
@@ -396,6 +397,7 @@ _ValueNode = Node(
         Field("enabled", None, value_fq),
         Field("value_default", None, value_fq),
         Field("value_override", None, value_fq),
+        Field("version", None, value_fq),
         Field("created_timestamp", None, value_fq),
         Field("reported_timestamp", None, value_fq),
     ],
@@ -592,6 +594,7 @@ FlagNode = Node(
             None,
             flag_sg.c(if_some([S.enabled, S.this.enabled], True, False)),
         ),
+        Field("version", None, flag_sg),
         Field("created_timestamp", None, flag_sg),
         Field("reported_timestamp", None, flag_sg),
         Link("changes", Sequence["Change"], link_flag_changes, requires="id"),
@@ -658,6 +661,7 @@ ValueNode = Node(
         ),
         Field("value_default", None, value_sg),
         Field("value_override", None, value_sg),
+        Field("version", None, value_sg),
         Field("created_timestamp", None, value_sg),
         Field("reported_timestamp", None, value_sg),
         Link(
@@ -956,7 +960,7 @@ async def save_flag_info(
 ) -> list[list]:
     [result] = results
 
-    def get_field(name: str) -> list[str] | None:
+    def get_field(name: str) -> tuple[str, ...] | None:
         if name == "errors":
             return result.errors
 
@@ -999,7 +1003,7 @@ async def save_value_info(
 ) -> list[list]:
     [result] = results
 
-    def get_field(name: str) -> list[str] | None:
+    def get_field(name: str) -> tuple[str, ...] | None:
         if name == "errors":
             return result.errors
 
@@ -1300,14 +1304,10 @@ async def sing_out(ctx: dict) -> AuthResult:
     return AuthResult(None)
 
 
-@pass_context
-async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:  # noqa: C901
-    operations = options["operations"]
-
-    if not operations:
-        return SaveFlagResult(None)
-
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+async def _apply_flag_operations(
+    ctx: dict, operations: list, expected_version: int | None
+) -> None:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         for operation in operations:
             operation_payload = operation["payload"]
             operation_type = Operation(operation["type"])
@@ -1356,13 +1356,28 @@ async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:  # noqa: C901
                     raise ValueError(f"Unknown operation: {operation_type}")
 
         await actions.postprocess(
-            conn=conn, dirty=ctx[GraphContext.DIRTY_PROJECTS]
+            conn=conn,
+            dirty=ctx[GraphContext.DIRTY_PROJECTS],
+            expected_version=expected_version,
         )
         await actions.update_changelog(
             session=ctx[GraphContext.USER_SESSION],
             conn=conn,
             changes=ctx[GraphContext.CHANGES],
         )
+
+
+@pass_context
+async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:
+    operations = options["operations"]
+
+    if not operations:
+        return SaveFlagResult(None)
+
+    try:
+        await _apply_flag_operations(ctx, operations, options.get("version"))
+    except actions.VersionConflictError as exc:
+        return SaveFlagResult((str(exc),))
 
     notifications = ctx[GraphContext.NOTIFICATIONS]
     if notifications is not None:
@@ -1377,7 +1392,7 @@ async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:  # noqa: C901
 
 @pass_context
 async def reset_flag(ctx: dict, options: dict) -> ResetFlagResult:
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         await actions.reset_flag(
             options["id"],
             conn=conn,
@@ -1407,7 +1422,7 @@ async def reset_flag(ctx: dict, options: dict) -> ResetFlagResult:
 @pass_context
 async def delete_flag(ctx: dict, options: dict) -> DeleteFlagResult:
     flag_uuid = UUID(hex=options["id"])
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         flag_row = await select_first(
             conn,
             select([Flag.name, Flag.project]).where(Flag.id == flag_uuid),
@@ -1430,14 +1445,10 @@ async def delete_flag(ctx: dict, options: dict) -> DeleteFlagResult:
     return DeleteFlagResult(None)
 
 
-@pass_context
-async def save_value(ctx: dict, options: dict) -> SaveValueResult:  # noqa: C901
-    operations = options["operations"]
-
-    if not operations:
-        return SaveValueResult(None)
-
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+async def _apply_value_operations(
+    ctx: dict, operations: list, expected_version: int | None
+) -> None:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         for operation in operations:
             operation_payload = operation["payload"]
             operation_type = Operation(operation["type"])
@@ -1499,13 +1510,28 @@ async def save_value(ctx: dict, options: dict) -> SaveValueResult:  # noqa: C901
                     raise ValueError(f"Unknown operation: {operation_type}")
 
         await actions.postprocess(
-            conn=conn, dirty=ctx[GraphContext.DIRTY_PROJECTS]
+            conn=conn,
+            dirty=ctx[GraphContext.DIRTY_PROJECTS],
+            expected_version=expected_version,
         )
         await actions.update_value_changelog(
             session=ctx[GraphContext.USER_SESSION],
             conn=conn,
             changes=ctx[GraphContext.VALUES_CHANGES],
         )
+
+
+@pass_context
+async def save_value(ctx: dict, options: dict) -> SaveValueResult:
+    operations = options["operations"]
+
+    if not operations:
+        return SaveValueResult(None)
+
+    try:
+        await _apply_value_operations(ctx, operations, options.get("version"))
+    except actions.VersionConflictError as exc:
+        return SaveValueResult((str(exc),))
 
     notifications = ctx[GraphContext.NOTIFICATIONS]
     if notifications is not None:
@@ -1520,7 +1546,7 @@ async def save_value(ctx: dict, options: dict) -> SaveValueResult:  # noqa: C901
 
 @pass_context
 async def reset_value(ctx: dict, options: dict) -> ResetValueResult:
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         await actions.reset_value(
             options["id"],
             conn=conn,
@@ -1550,7 +1576,7 @@ async def reset_value(ctx: dict, options: dict) -> ResetValueResult:
 @pass_context
 async def delete_value(ctx: dict, options: dict) -> DeleteValueResult:
     value_uuid = UUID(hex=options["id"])
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
+    async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         value_row = await select_first(
             conn,
             select([Value.name, Value.project]).where(Value.id == value_uuid),
@@ -1735,7 +1761,9 @@ MUTATION_GRAPH = Graph(
                     options=[
                         Option(
                             "operations", Sequence[TypeRef["SaveFlagOperation"]]
-                        )
+                        ),
+                        # Flag.version the client loaded; stale saves fail
+                        Option("version", Optional[Integer], default=None),
                     ],
                     requires=None,
                 ),
@@ -1762,6 +1790,8 @@ MUTATION_GRAPH = Graph(
                             "operations",
                             Sequence[TypeRef["SaveValueOperation"]],
                         ),
+                        # Value.version the client loaded; stale saves fail
+                        Option("version", Optional[Integer], default=None),
                     ],
                     requires=None,
                 ),

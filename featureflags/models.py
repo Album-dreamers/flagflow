@@ -118,6 +118,8 @@ class Flag(Base):
     reported_timestamp = Column(
         TIMESTAMP, default=datetime.utcnow(), nullable=True
     )
+    # bumped on every change, used to reject saves from a stale view
+    version = Column(Integer, nullable=False, default=0, server_default="0")
 
     project: UUID = Column(ForeignKey("project.id"), nullable=False)
 
@@ -207,6 +209,8 @@ class Value(Base):
     reported_timestamp = Column(
         TIMESTAMP, default=datetime.utcnow(), nullable=True
     )
+    # bumped on every change, used to reject saves from a stale view
+    version = Column(Integer, nullable=False, default=0, server_default="0")
 
     project: UUID = Column(ForeignKey("project.id"), nullable=False)
 

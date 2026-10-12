@@ -277,7 +277,47 @@ async def disable_condition(
         changes.add(flag_id, Action.DISABLE_CONDITION)
 
 
-async def postprocess(*, conn: SAConnection, dirty: DirtyProjects) -> None:
+class VersionConflictError(Exception):
+    """The flag or value was changed after the client loaded it."""
+
+
+async def _bump_versions(
+    model: type[Flag] | type[Value],
+    ids: set[UUID],
+    expected_version: int | None,
+    *,
+    conn: SAConnection,
+) -> None:
+    query = (
+        update(model.__table__)
+        .where(model.id.in_(list(ids)))
+        .values({model.version: model.version + 1})
+        .returning(model.id)
+    )
+    if expected_version is not None:
+        # Compare-and-set: a concurrent save that committed first has
+        # already bumped the version, so this update matches no row.
+        query = query.where(model.version == expected_version)
+    result = await conn.execute(query)
+    bumped = await result.fetchall()
+    if expected_version is not None and len(bumped) != len(ids):
+        raise VersionConflictError(
+            f"{model.__name__} was changed by someone else, "
+            "reload and try again"
+        )
+
+
+async def postprocess(
+    *,
+    conn: SAConnection,
+    dirty: DirtyProjects,
+    expected_version: int | None = None,
+) -> None:
+    if dirty.by_flag:
+        await _bump_versions(Flag, dirty.by_flag, expected_version, conn=conn)
+    if dirty.by_value:
+        await _bump_versions(Value, dirty.by_value, expected_version, conn=conn)
+
     selections = []
     for flag_id in dirty.by_flag:
         selections.append(select([Flag.project]).where(Flag.id == flag_id))

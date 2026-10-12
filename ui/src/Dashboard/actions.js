@@ -267,7 +267,9 @@ export const useActions = (flag) => {
     }
     saveFlagMut({
       variables: {
-        operations: ops
+        operations: ops,
+        // the server rejects the save if the flag changed since it was loaded
+        version: flag.version
       }
     });
   }
@@ -528,7 +530,9 @@ export const useValueActions = (value) => {
     }
     saveValueMut({
       variables: {
-        operations: ops
+        operations: ops,
+        // the server rejects the save if the value changed since it was loaded
+        version: value.version
       }
     });
   }
