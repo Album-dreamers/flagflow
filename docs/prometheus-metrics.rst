@@ -12,8 +12,17 @@ HTTP Metrics
    Total number of HTTP requests.
 
    :labels:
-      - ``handler`` (string) - HTTP request handler (e.g. ``/load``, ``/sync``)
+      - ``handler`` (string) - HTTP request handler (e.g. ``/load``, ``/sync``, ``/stream``)
       - ``project`` (string) - Project name
+
+.. describe:: sse_streams
+
+   Number of open ``/flags/stream`` connections on this instance.
+
+.. describe:: project_version_listener_reconnects_total
+
+   Number of times the ``LISTEN`` connection for project version changes had
+   to be re-established.
 
 Graph Metrics
 -------------

@@ -6,13 +6,10 @@ changelog entry together, and must reject a save made from a stale view.
 import asyncio
 
 import pytest
-from hiku.endpoint.graphql import AsyncBatchGraphQLEndpoint
 from sqlalchemy import func, select
 
-from featureflags.graph import actions, graph
-from featureflags.graph.context import init_graph_context
+from featureflags.graph import actions
 from featureflags.models import Changelog, Flag, Operator, Project, Value
-from featureflags.services import auth
 from featureflags.tests.state import (
     mk_auth_user,
     mk_check,
@@ -34,27 +31,6 @@ SAVE_VALUE = """
         saveValue(operations: $operations, version: $version) { errors }
     }
 """
-
-
-@pytest.fixture
-def graphql(db_engine, graph_engine, ldap):
-    endpoint = AsyncBatchGraphQLEndpoint(
-        engine=graph_engine,
-        query_graph=graph.GRAPH,
-        mutation_graph=graph.MUTATION_GRAPH,
-    )
-
-    async def call(user, query, **variables):
-        ctx = init_graph_context(
-            session=auth.TestSession(user.id),
-            engine=db_engine,
-            ldap=ldap,
-        )
-        return await endpoint.dispatch(
-            {"query": query, "variables": variables}, ctx
-        )
-
-    return call
 
 
 def enable(flag):

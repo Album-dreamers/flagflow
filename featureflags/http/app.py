@@ -59,4 +59,5 @@ def main() -> None:
         http="httptools",
         reload=config.http.reload,
         log_level="debug" if config.debug else "info",
+        timeout_graceful_shutdown=config.http.shutdown_timeout,
     )

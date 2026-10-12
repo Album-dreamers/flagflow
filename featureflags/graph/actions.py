@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from aiopg.sa import SAConnection
@@ -37,6 +38,7 @@ from featureflags.models import (
 )
 from featureflags.services.auth import UserSession, auth_required
 from featureflags.services.ldap import BaseLDAP
+from featureflags.services.project_versions import notify_project_version
 from featureflags.utils import select_scalar
 
 
@@ -193,7 +195,14 @@ async def delete_flag(
     await conn.execute(
         Condition.__table__.delete().where(Condition.flag == flag_uuid)
     )
-    await conn.execute(Flag.__table__.delete().where(Flag.id == flag_uuid))
+    project_id = await select_scalar(
+        conn,
+        Flag.__table__.delete()
+        .where(Flag.id == flag_uuid)
+        .returning(Flag.project),
+    )
+    if project_id is not None:
+        await bump_project_versions(Project.id == project_id, conn=conn)
 
     changes.add(flag_uuid, Action.DELETE_FLAG)
 
@@ -328,11 +337,26 @@ async def postprocess(
     for value_id in dirty.by_value:
         selections.append(select([Value.project]).where(Value.id == value_id))
     if selections:
-        await conn.execute(
-            update(Project.__table__)
-            .where(or_(*[Project.id.in_(sel) for sel in selections]))
-            .values({Project.version: Project.version + 1})
+        await bump_project_versions(
+            or_(*[Project.id.in_(sel) for sel in selections]), conn=conn
         )
+
+
+async def bump_project_versions(where: Any, *, conn: SAConnection) -> None:
+    """
+    Bump versions so clients pick up the change, and tell the http instances.
+
+    Must run in the transaction that made the change: the notification is
+    delivered on commit and dropped on rollback.
+    """
+    result = await conn.execute(
+        update(Project.__table__)
+        .where(where)
+        .values({Project.version: Project.version + 1})
+        .returning(Project.name, Project.version)
+    )
+    for row in await result.fetchall():
+        await notify_project_version(conn, row.name, row.version)
 
 
 async def update_changelog(
@@ -469,7 +493,14 @@ async def delete_value(
             ValueCondition.value == value_uuid
         )
     )
-    await conn.execute(Value.__table__.delete().where(Value.id == value_uuid))
+    project_id = await select_scalar(
+        conn,
+        Value.__table__.delete()
+        .where(Value.id == value_uuid)
+        .returning(Value.project),
+    )
+    if project_id is not None:
+        await bump_project_versions(Project.id == project_id, conn=conn)
 
     changes.add(value_uuid, ValueAction.DELETE_VALUE)
 

@@ -146,6 +146,13 @@ class HttpSettings(BaseSettings):
     host: str = "0.0.0.0"
     reload: bool = False
     max_concurrent_threads: int = 40
+    # Backstop: SSE streams end on shutdown by themselves (sse-starlette),
+    # anything still running after this is cancelled
+    shutdown_timeout: int = 5
+    # Re-read watched project versions to recover lost notifications
+    sse_reconcile_interval: float = 30.0
+    # In readonly mode there is no LISTEN, versions are polled instead
+    sse_replica_poll_interval: float = 1.0
 
 
 class SentrySettings(BaseSettings):

@@ -8,14 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Push updates over SSE**: `GET /flags/stream?project=<name>&version=<n>`
+  on the `http` server streams `version` events whenever the project version
+  goes above `n` (the current version is sent right away if the client is
+  behind). Events carry only the version, clients fetch flags with `/sync`.
+  Event ids are versions, so standard SSE clients resume via `Last-Event-ID`.
+  Streams are served with `sse-starlette` and end cleanly when the server
+  shuts down, so clients reconnect to another instance right away.
+  Saves send a Postgres `NOTIFY` in the same transaction as the version bump,
+  so it's delivered only on commit; every `http` instance `LISTEN`s and
+  re-reads watched versions after reconnecting and every
+  `http.sse_reconcile_interval` seconds (default 30), so no update is lost
+  while the listener is down. In `readonly` mode versions are polled every
+  `http.sse_replica_poll_interval` seconds (default 1) instead. Open streams
+  are exposed as the `sse_streams` gauge, listener reconnects as
+  `project_version_listener_reconnects_total`.
 - **Optimistic locking**: `saveFlag` / `saveValue` accept the `version` the
   client loaded and reject the save if the flag/value changed since.
 
 ### Changed
 - `saveFlag`, `resetFlag`, `deleteFlag` and their value counterparts apply
   all their writes (rules, version bump, changelog) in one transaction.
+- Requires FastAPI >= 0.143 and Starlette 1.x (`sse-starlette` needs
+  Starlette >= 0.49), which also brings Pydantic 2.14 and Uvicorn 0.54.
+- `http` server shutdown waits at most `http.shutdown_timeout` seconds
+  (default 5) for in-flight requests.
 
 ### Fixed
+- Deleting a flag or value bumps the project version, so clients stop
+  evaluating it.
 - A save based on a stale view no longer silently drops conditions while
   reporting success.
 

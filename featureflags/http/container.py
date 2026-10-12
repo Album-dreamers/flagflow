@@ -5,6 +5,7 @@ from hiku.executors.asyncio import AsyncIOExecutor
 from featureflags.config import config
 from featureflags.http.repositories.flags import FlagsRepository
 from featureflags.services.db import init_db_engine
+from featureflags.services.project_versions import init_project_version_hub
 
 
 class Container(containers.DeclarativeContainer):
@@ -24,6 +25,10 @@ class Container(containers.DeclarativeContainer):
         providers.Callable(AsyncIOExecutor),
     )
     db_engine = providers.Resource(init_db_engine)
+    version_hub = providers.Resource(
+        init_project_version_hub,
+        db_engine=db_engine,
+    )
 
     # Repos
     flags_repo = providers.Factory(

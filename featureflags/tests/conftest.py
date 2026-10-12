@@ -6,10 +6,13 @@ import aiopg.sa
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
+from hiku.endpoint.graphql import AsyncBatchGraphQLEndpoint
 from hiku.engine import Engine
 from sqlalchemy import text
 
 from featureflags.alembic import main as alembic_main
+from featureflags.graph import graph
+from featureflags.graph.context import init_graph_context
 from featureflags.graph.types import Changes, DirtyProjects, ValuesChanges
 from featureflags.models import metadata
 from featureflags.services.auth import TestSession, user_session
@@ -106,3 +109,25 @@ def graph_engine(container: "Container") -> Engine:
 @pytest.fixture
 def ldap(container: "Container") -> BaseLDAP:
     return container.ldap_service()
+
+
+@pytest.fixture
+def graphql(db_engine, graph_engine, ldap):
+    """Run a GraphQL query or mutation as `user`."""
+    endpoint = AsyncBatchGraphQLEndpoint(
+        engine=graph_engine,
+        query_graph=graph.GRAPH,
+        mutation_graph=graph.MUTATION_GRAPH,
+    )
+
+    async def call(user, query, **variables):
+        ctx = init_graph_context(
+            session=TestSession(user.id),
+            engine=db_engine,
+            ldap=ldap,
+        )
+        return await endpoint.dispatch(
+            {"query": query, "variables": variables}, ctx
+        )
+
+    return call
