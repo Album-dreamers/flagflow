@@ -1,0 +1,43 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - migrate-to-http-client
+    types:
+      - assigned
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Important for git describe to work correctly
+
+      - name: Install lets
+        uses: lets-cli/lets-action@v1.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4.0.1
+        with:
+          node-version: 20
+          cache-dependency-path: ./ui/package-lock.json
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: ./ui
+        run: npm install
+
+      - name: Build UI
+        working-directory: ./ui
+        run: npm run build
+
+      - name: Run server tests
+        run: lets test

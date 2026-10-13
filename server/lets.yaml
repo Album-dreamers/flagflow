@@ -1,0 +1,195 @@
+shell: bash
+
+env:
+  DOCKER_BUILDKIT: "1"
+  COMPOSE_DOCKER_CLI_BUILD: "1"
+  CURRENT_UID:
+    sh: echo "`id -u`:`id -g`"
+  BUILD_VERSION:
+    sh: git describe --dirty
+
+commands:
+  build-target:
+    options: |
+      Usage: lets build-target <target>
+    cmd: |
+      docker build \
+        -t featureflags-server-${LETSOPT_TARGET} \
+        -f Dockerfile \
+        --target ${LETSOPT_TARGET} \
+        .
+
+  build-prod:
+    description: Build server image with embeded frontend
+    options: |
+      Usage: lets build-prod --repo=<repo> --tag=<tag>
+
+      Options:
+        --repo=<repo>                Set container repo
+        --tag=<tag>                  Set container tag
+    cmd: |
+      docker build \
+        -f Dockerfile \
+        -t ${LETSOPT_REPO}:${LETSOPT_TAG} \
+        --target prd \
+        .
+
+  build-dev:
+    description: Build dev server image
+    ref: build-target
+    args: dev
+
+  build-test:
+    description: Build test server image
+    ref: build-target
+    args: test
+
+  build-docs:
+    description: Build docs image
+    ref: build-target
+    args: docs
+
+  build-ui:
+    description: Build client image
+    ref: build-target
+    args: assets-dev
+
+  run:
+    description: Run whole application
+    depends:
+      - build-dev
+    cmd: docker-compose up web client
+
+  web:
+    description: Run web server
+    depends:
+      - build-dev
+    cmd: docker-compose up web
+
+  http:
+    description: Run http server
+    depends:
+      - build-dev
+    cmd: docker-compose up http
+
+  test:
+    description: Run tests
+    depends:
+      - build-test
+      - postgres-test
+    cmd: |
+      docker compose run --rm test
+
+  ldap:
+    description: Run ldap server
+    cmd: docker-compose up ldap
+
+  postgres:
+    description: Run postgres
+    cmd: docker-compose up postgres
+
+  postgres-test:
+    description: Run postgres test db
+    cmd: docker compose up -d postgres-test
+
+  apply-migrations-dev:
+    description: Apply migrations to local postgres
+    depends: [build-dev]
+    cmd: |
+      docker-compose run --rm backend python3 -m featureflags alembic -- upgrade head
+
+  rollback-migration-dev:
+    description: Rollback migrations to local postgres
+    depends: [build-dev]
+    cmd: |
+      docker-compose run --rm backend python3 -m featureflags alembic -- downgrade -1
+
+  create-migration:
+    description: |
+      Create new migration file
+      Example: lets create-migration add_date_created_column_to_user_table
+    depends: [build-dev]
+    cmd: |
+      docker-compose run --rm backend python3 -m featureflags alembic -- revision --autogenerate -m ${LETS_COMMAND_ARGS}
+
+  apply-seeds-dev:
+    description: Apply seeds to local postgres
+    cmd: |
+      docker-compose exec postgres \
+        psql -U postgres -d featureflags -f /var/lib/postgresql/seeds/seeds.sql
+
+  ishell:
+    description: Run app with ipython
+    depends: [build-dev]
+    cmd: docker-compose run --rm ishell
+
+  psql:
+    cmd: docker-compose exec postgres psql -U postgres -d featureflags
+
+  gen-docs:
+    description: Generate docs
+    depends: [build-docs]
+    cmd: |
+      docker-compose run --rm docs \
+        sphinx-build -a -b html docs docs/build
+      echo "Docs generated at docs/build/index.html"
+
+  ui:
+    description: Build and run UI with dev server
+    work_dir: ./ui
+    cmd: npm run dev
+
+  ui-build-dev:
+    description: Build UI in development mode, copy static, watch changes
+    work_dir: ./ui
+    cmd: npm run build-dev-watch
+
+  run-example-client:
+    description: Run example Flask client against the HTTP API
+    cmd: uv run --no-project --with requests --with flask --with evo-featureflags-client examples/http/flask_server.py
+
+  ruff:
+    description: Run ruff and fix errors
+    depends: [build-dev]
+    cmd: |
+      docker-compose run -T --rm backend ruff check featureflags --fix ${LETS_COMMAND_ARGS}
+
+  ruff-diff:
+    description: Run ruff to check diff
+    depends: [build-dev]
+    cmd: |
+      docker-compose run -T --rm backend ruff check featureflags ${LETS_COMMAND_ARGS}
+
+  mypy:
+    description: Run mypy
+    depends: [build-dev]
+    cmd: |
+      docker-compose run -T --rm backend mypy featureflags ${LETS_COMMAND_ARGS}
+
+  black:
+    description: Run black
+    depends: [build-dev]
+    cmd: |
+      docker-compose run -T --rm backend black featureflags ${LETS_COMMAND_ARGS}
+
+  fmt:
+    description: Run black and ruff
+    depends: [build-dev]
+    cmd: |
+      docker-compose run -T --rm backend black featureflags
+      docker-compose run -T --rm backend ruff check featureflags --fix
+
+  release:
+    description: |
+      Update version in featureflags/__init__.py
+      Create new annotated tag
+      Push changes to remote
+    options: |
+      Usage: lets release <version> --message=<message>
+      Options:
+        <version>       Set version
+        --message=<message>, -m    Release message
+      Example:
+        lets release 1.0.0 --message="Added feature"
+    cmd: |
+      VERSION=${LETSOPT_VERSION} MESSAGE=${LETSOPT_MESSAGE} ./scripts/release.sh

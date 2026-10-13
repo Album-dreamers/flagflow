@@ -1,0 +1,13 @@
+# Archived OpenSpec changes — historical artifacts, not reviewed line-by-line.
+# Collapse them in code-review diffs and suppress their body in local git.
+#
+#   gitlab-generated     → GitLab collapses the file in MR diffs (still Expand-able).
+#                          This is the one that matters here — we review on GitLab.
+#   linguist-generated   → same effect for GitHub PR diffs; GitLab ignores it
+#                          (kept only for a potential GitHub mirror).
+#   -diff                → native git: `git diff` / `git log -p` mark the file as
+#                          changed but omit its body. Local-only, host-agnostic.
+openspec/changes/archive/** gitlab-generated
+openspec/changes/archive/** linguist-generated=true
+openspec/changes/archive/** -diff
+

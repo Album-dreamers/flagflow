@@ -1,0 +1,67 @@
+debug: true
+test_environ: true
+
+# Readonly replica mode: serve flags from a readonly Postgres replica,
+# skip all client-triggered writes (flag registration, report timestamps).
+readonly: false
+
+app:
+  port: 8080
+  host: 0.0.0.0
+  reload: True
+
+http:
+  port: 8081
+  host: 0.0.0.0
+  reload: True
+
+logging:
+  level_app: debug
+  level_libs: info
+  handlers: [console]
+  syslog_app: null
+  syslog_facility: null
+  syslog_mapping: null
+  syslog_defaults: null
+
+postgres:
+  host: postgres
+  port: 5432
+  database: featureflags
+  timeout: 10
+
+ldap:
+  host: ldap://ldap:3893
+  base_dn: dc=evo,dc=dev
+
+# OIDC is opt-in — omit this section to disable. Each provider follows the
+# OIDC spec (Google, Microsoft Entra ID, Auth0, Okta, Keycloak, …).
+# oidc:
+#   providers:
+#     - name: google
+#       issuer: https://accounts.google.com
+#       allowed_email_domains: [example.com]
+#       clients:
+#         - id: "11111-web.apps.googleusercontent.com"
+#           name: web
+#           read_only: false
+#           client_secret: "..."
+#         - id: "22222-cli.apps.googleusercontent.com"
+#           name: cli
+#           read_only: true
+
+ui:
+  # When true, the UI asks for confirmation before applying, resetting, or
+  # deleting a flag/value. Intended for production-like environments.
+  confirmation_required: false
+
+instrumentation:
+  prometheus_port: 9100
+
+sentry:
+  enabled: false
+  dsn: null
+  env: local
+  enable_tracing: true
+  traces_sample_rate: 1
+  shutdown_timeout: 1
