@@ -1,6 +1,6 @@
 # FlagFlow
 
-功能开关与灰度发布服务。基于开源项目 [evo-company/featureflags](https://github.com/evo-company/featureflags)（FastAPI + PostgreSQL，生产在用）及其 Python SDK [featureflags-py](https://github.com/evo-company/featureflags-py) 改造：
+功能开关与灰度发布服务。基于开源项目 [evo-company/featureflags](https://github.com/evo-company/featureflags)（FastAPI + PostgreSQL，已发布到 PyPI，v2.0.0 于 2026-07 发布）及其 Python SDK [featureflags-py](https://github.com/evo-company/featureflags-py) 改造：
 
 - 配置改动实时推送到客户端（SSE + PostgreSQL LISTEN/NOTIFY），在数据库重启、服务重启、多实例部署的情况下都不丢更新；
 - 修改开关改为单事务，加乐观锁，修复了"并发修改被静默丢弃却报保存成功"的问题；
@@ -78,7 +78,16 @@ aiopg 默认自动提交，改规则、版本号加一、写变更日志是分�
 | SDK 解析 SSE | [httpx-sse](https://github.com/florimondmanca/httpx-sse)（MIT） |
 | 压测 | [locust](https://locust.io) |
 
-选型时比较过但没有采用的候选（aiopg-listen、asyncpg-listen、launchdarkly-eventsource、fcache、atomicwrites 等），都看过源码，未采用的理由写在对应提交的说明里。
+比较过但没有采用的候选（都下载源码核实过）：
+
+| 候选 | 没采用的原因 |
+|---|---|
+| FastAPI 自带的 `fastapi.sse` | 服务关停时要等超时，然后每条连接打一段异常堆栈 |
+| aiopg-listen | 没有保活，连接半开时永远收不到通知；2023 年后没再发版 |
+| asyncpg-listen | 要多引一个数据库驱动；和 aiopg-listen 一样，都不通知"已重连"，丢失的通知要等空闲窗口才补 |
+| launchdarkly-eventsource | 异步客户端在文档里标为 experimental；要求 Python ≥ 3.10，而 SDK 支持 3.9 |
+| Unleash FileCache（fcache） | 临时文件建在系统临时目录，跨文件系统时退化成非原子的复制 |
+| atomicwrites | 已停止维护，作者建议直接用 `os.replace` |
 
 ## 压测结果
 
