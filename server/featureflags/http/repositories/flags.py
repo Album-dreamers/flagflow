@@ -17,7 +17,7 @@ from featureflags.http.types import (
 )
 from featureflags.models import Project
 from featureflags.services.auth import user_session
-from featureflags.utils import EntityCache, select_scalar
+from featureflags.utils import select_scalar
 
 
 def load_data_query(project: str) -> QueryNode:
@@ -120,14 +120,8 @@ class FlagsRepository:
         Initialize project from request, create/update entities in the database.
         """
 
-        entity_cache = EntityCache()
-
         async with self._db_engine.acquire() as conn:
-            await prepare_flags_project(
-                request,
-                conn=conn,
-                entity_cache=entity_cache,
-            )
+            await prepare_flags_project(request, conn=conn)
 
     async def load(self, request: PreloadFlagsRequest) -> PreloadFlagsResponse:
         """

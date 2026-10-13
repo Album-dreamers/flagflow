@@ -1,9 +1,11 @@
 import asyncio
+from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from featureflags.graph import actions
+from featureflags.http.db import REPORT_INTERVAL, prepare_flags_project
 from featureflags.http.repositories import flags as flags_module
 from featureflags.http.repositories.flags import FlagsRepository
 from featureflags.http.types import PreloadFlagsRequest, SyncFlagsRequest
@@ -241,3 +243,91 @@ async def test_failed_project_delete_keeps_everything(
     assert result["data"]["deleteProject"]["error"]
     assert await project_id_by_name(db_engine, project.name) == project.id
     assert await flag_id_by_name(db_engine, flag.name) == flag.id
+
+
+async def reported_at(db_engine, flag):
+    async with db_engine.acquire() as conn:
+        return await select_scalar(
+            conn,
+            select([Flag.reported_timestamp]).where(Flag.id == flag.id),
+        )
+
+
+async def set_reported_at(db_engine, flag, timestamp):
+    async with db_engine.acquire() as conn:
+        await conn.execute(
+            Flag.__table__.update()
+            .where(Flag.id == flag.id)
+            .values({Flag.reported_timestamp: timestamp})
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_refreshes_reported_timestamp_at_most_every_interval(
+    flags_repo, db_engine
+):
+    project = await mk_project(db_engine)
+    flag = await mk_flag(db_engine, project=project)
+    request = PreloadFlagsRequest(
+        project=project.name, version=0, flags=[flag.name]
+    )
+
+    stale = datetime.utcnow() - REPORT_INTERVAL - timedelta(seconds=5)
+    await set_reported_at(db_engine, flag, stale)
+    await flags_repo.load(request)
+    refreshed = await reported_at(db_engine, flag)
+    assert refreshed > stale
+
+    # loaded again right away: no write
+    await flags_repo.load(request)
+    assert await reported_at(db_engine, flag) == refreshed
+
+
+class CountingConnection:
+    def __init__(self, conn):
+        self.conn = conn
+        self.statements = []
+
+    async def execute(self, query, *args, **kwargs):
+        self.statements.append(query)
+        return await self.conn.execute(query, *args, **kwargs)
+
+
+@pytest.mark.asyncio
+async def test_registering_known_entities_takes_a_few_queries(db_engine):
+    # one query per kind, however many flags: clients starting together
+    # must not each run a query per flag
+    flags = [f"FLAG_{i}" for i in range(20)]
+    values = [(f"VALUE_{i}", "default") for i in range(5)]
+    request = PreloadFlagsRequest(
+        project="many-flags", version=0, flags=flags, values=values
+    )
+    async with db_engine.acquire() as conn:
+        await prepare_flags_project(request, conn=conn)
+        counting = CountingConnection(conn)
+        await prepare_flags_project(request, conn=counting)
+
+    # project, flags, flag timestamps, values, value timestamps
+    assert len(counting.statements) == 5
+
+
+@pytest.mark.asyncio
+async def test_concurrent_loads_register_new_flags_once(flags_repo, db_engine):
+    request = PreloadFlagsRequest(
+        project="starting-together",
+        version=0,
+        flags=["NEW_A", "NEW_B"],
+        values=[("NEW_VALUE", "1")],
+    )
+
+    await asyncio.gather(*(flags_repo.load(request) for _ in range(5)))
+
+    async with db_engine.acquire() as conn:
+        flag_count = await select_scalar(
+            conn,
+            select([func.count()])
+            .select_from(Flag.__table__)
+            .where(Flag.name.in_(["NEW_A", "NEW_B"])),
+        )
+    assert flag_count == 2
+

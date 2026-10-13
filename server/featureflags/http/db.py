@@ -1,21 +1,16 @@
 """
     This module defines client -> server feedback, which is used to
     notify server about new projects/variables/flags
-    TODO: refactor.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 from aiopg.sa import SAConnection
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
-from featureflags.http.types import (
-    PreloadFlagsRequest,
-)
-from featureflags.http.types import (
-    Variable as RequestVariable,
-)
+from featureflags.http.types import PreloadFlagsRequest
 from featureflags.models import (
     PROJECT_VERSION_SEQUENCE,
     Flag,
@@ -23,7 +18,11 @@ from featureflags.models import (
     Value,
     Variable,
 )
-from featureflags.utils import EntityCache
+
+# "Last reported" is refreshed at most this often. Writing it on every load
+# made clients starting together update the same rows one after another,
+# holding their pool connections until the pool ran out.
+REPORT_INTERVAL = timedelta(minutes=1)
 
 
 async def _select_project(name: str, *, conn: SAConnection) -> UUID:
@@ -50,230 +49,100 @@ async def _insert_project(name: str, *, conn: SAConnection) -> UUID:
     return await result.scalar()
 
 
-async def _get_or_create_project(
-    name: str,
-    *,
-    conn: SAConnection,
-    entity_cache: EntityCache,
-) -> UUID:
+async def _get_or_create_project(name: str, *, conn: SAConnection) -> UUID:
     assert name
-    id_ = entity_cache.project.get(name)
-    if id_ is None:  # not in cache
-        id_ = await _select_project(name, conn=conn)
-        if id_ is None:  # not in db
-            id_ = await _insert_project(name, conn=conn)
-            if id_ is None:  # conflicting insert
-                id_ = await _select_project(name, conn=conn)
-                assert id_ is not None  # must be in db
-        entity_cache.project[name] = id_
+    id_ = await _select_project(name, conn=conn)
+    if id_ is None:  # not in db
+        id_ = await _insert_project(name, conn=conn)
+        if id_ is None:  # conflicting insert
+            id_ = await _select_project(name, conn=conn)
+            assert id_ is not None  # must be in db
     return id_
 
 
-async def _select_variable(
-    project: UUID, variable: RequestVariable, *, conn: SAConnection
-) -> UUID:
-    result = await conn.execute(
-        select([Variable.id]).where(
-            and_(Variable.project == project, Variable.name == variable.name)
-        )
-    )
-    return await result.scalar()
-
-
-async def _insert_variable(
-    project: UUID, variable: RequestVariable, *, conn: SAConnection
-) -> UUID:
-    result = await conn.execute(
-        insert(Variable.__table__)
-        .values(
-            {
-                Variable.id: uuid4(),
-                Variable.project: project,
-                Variable.name: variable.name,
-                Variable.type: variable.type,
-            }
-        )
-        .on_conflict_do_nothing()
-        .returning(Variable.id)
-    )
-    return await result.scalar()
-
-
-async def _get_or_create_variable(
+async def _register(
+    model: Any,
     project: UUID,
-    variable: RequestVariable,
+    entries: dict[str, dict],
     *,
     conn: SAConnection,
-    entity_cache: EntityCache,
-) -> UUID:
-    assert project and variable, (project, variable)
-    id_ = entity_cache.variable[project].get(variable.name)
-    if id_ is None:  # not in cache
-        id_ = await _select_variable(project, variable, conn=conn)
-        if id_ is None:  # not in db
-            id_ = await _insert_variable(project, variable, conn=conn)
-            if id_ is None:  # conflicting insert
-                id_ = await _select_variable(project, variable, conn=conn)
-                assert id_ is not None  # must be in db
-        entity_cache.variable[project][variable.name] = id_
-    return id_
-
-
-async def _select_flag(project: UUID, name: str, *, conn: SAConnection) -> UUID:
+) -> None:
+    """
+    Make sure the project has these variables/flags/values, `entries` maps
+    a name to the extra columns for a new row. One query when they all exist.
+    """
+    if not entries:
+        return
     result = await conn.execute(
-        select([Flag.id]).where(
-            and_(Flag.project == project, Flag.name == name)
+        select([model.name]).where(
+            and_(model.project == project, model.name.in_(list(entries)))
         )
     )
-    return await result.scalar()
+    existing = {row.name for row in await result.fetchall()}
+    missing = [name for name in entries if name not in existing]
+    if missing:
+        # another client may register them at the same time
+        await conn.execute(
+            insert(model.__table__)
+            .values(
+                [
+                    {
+                        model.id: uuid4(),
+                        model.project: project,
+                        model.name: name,
+                        **entries[name],
+                    }
+                    for name in missing
+                ]
+            )
+            .on_conflict_do_nothing()
+        )
 
 
-async def _insert_flag(
-    project: UUID,
-    name: str,
-    *,
-    conn: SAConnection,
-) -> UUID | None:
-    result = await conn.execute(
-        insert(Flag.__table__)
-        .values({Flag.id: uuid4(), Flag.project: project, Flag.name: name})
-        .on_conflict_do_nothing()
-        .returning(Flag.id)
-    )
-    return await result.scalar()
-
-
-async def _update_flag_report_timestamp(flag_id: UUID, *, conn: SAConnection):
+async def _report(
+    model: Any, project: UUID, names: list[str], *, conn: SAConnection
+) -> None:
+    if not names:
+        return
+    now = datetime.utcnow()
     await conn.execute(
-        Flag.__table__.update()
-        .where(Flag.id == flag_id)
-        .values({Flag.reported_timestamp: datetime.utcnow()})
-    )
-
-
-async def _get_or_create_flag(
-    project: UUID,
-    flag: str,
-    *,
-    conn: SAConnection,
-    entity_cache: EntityCache,
-) -> UUID:
-    assert project and flag, (project, flag)
-    id_ = entity_cache.flag[project].get(flag)
-    if id_ is None:  # not in cache
-        id_ = await _select_flag(project, flag, conn=conn)
-        if id_ is None:  # not in db
-            id_ = await _insert_flag(project, flag, conn=conn)
-            if id_ is None:  # conflicting insert
-                id_ = await _select_flag(project, flag, conn=conn)
-                assert id_ is not None  # must be in db
-        entity_cache.flag[project][flag] = id_
-
-    await _update_flag_report_timestamp(id_, conn=conn)
-
-    return id_
-
-
-async def _select_value(
-    project: UUID,
-    name: str,
-    *,
-    conn: SAConnection,
-) -> UUID | None:
-    result = await conn.execute(
-        select([Value.id]).where(
-            and_(Value.project == project, Value.name == name)
+        model.__table__.update()
+        .where(
+            and_(
+                model.project == project,
+                model.name.in_(names),
+                or_(
+                    model.reported_timestamp.is_(None),
+                    model.reported_timestamp < now - REPORT_INTERVAL,
+                ),
+            )
         )
+        .values({model.reported_timestamp: now})
     )
-    return await result.scalar()
-
-
-async def _insert_value(
-    project: UUID,
-    name: str,
-    value_default: str,
-    *,
-    conn: SAConnection,
-) -> UUID | None:
-    result = await conn.execute(
-        insert(Value.__table__)
-        .values(
-            {
-                Value.id: uuid4(),
-                Value.project: project,
-                Value.name: name,
-                Value.value_default: value_default,
-                Value.value_override: value_default,
-            }
-        )
-        .on_conflict_do_nothing()
-        .returning(Value.id)
-    )
-    return await result.scalar()
-
-
-async def _update_value_report_timestamp(value_id: UUID, *, conn: SAConnection):
-    await conn.execute(
-        Value.__table__.update()
-        .where(Value.id == value_id)
-        .values({Value.reported_timestamp: datetime.utcnow()})
-    )
-
-
-async def _get_or_create_value(
-    project: UUID,
-    value: str,
-    value_default: str,
-    *,
-    conn: SAConnection,
-    entity_cache: EntityCache,
-) -> UUID:
-    assert project and value, (project, value)
-    id_ = entity_cache.value[project].get(value)
-    if id_ is None:  # not in cache
-        id_ = await _select_value(project, value, conn=conn)
-        if id_ is None:  # not in db
-            id_ = await _insert_value(project, value, value_default, conn=conn)
-            if id_ is None:  # conflicting insert
-                id_ = await _select_value(project, value, conn=conn)
-                assert id_ is not None  # must be in db
-        entity_cache.value[project][value] = id_
-
-    await _update_value_report_timestamp(id_, conn=conn)
-
-    return id_
 
 
 async def prepare_flags_project(
-    request: PreloadFlagsRequest,
-    conn: SAConnection,
-    entity_cache: EntityCache,
+    request: PreloadFlagsRequest, conn: SAConnection
 ) -> None:
-    project = await _get_or_create_project(
-        request.project,
+    project = await _get_or_create_project(request.project, conn=conn)
+    await _register(
+        Variable,
+        project,
+        {var.name: {Variable.type: var.type} for var in request.variables},
         conn=conn,
-        entity_cache=entity_cache,
     )
-    for variable in request.variables:
-        await _get_or_create_variable(
-            project,
-            variable,
-            conn=conn,
-            entity_cache=entity_cache,
-        )
-    for flag in request.flags:
-        await _get_or_create_flag(
-            project,
-            flag,
-            conn=conn,
-            entity_cache=entity_cache,
-        )
-    for value in request.values:
-        value_name, value_value_default = value
-        await _get_or_create_value(
-            project,
-            value_name,
-            str(value_value_default),
-            conn=conn,
-            entity_cache=entity_cache,
-        )
+
+    await _register(
+        Flag, project, {name: {} for name in request.flags}, conn=conn
+    )
+    await _report(Flag, project, request.flags, conn=conn)
+
+    values = {
+        name: {
+            Value.value_default: str(default),
+            Value.value_override: str(default),
+        }
+        for name, default in request.values
+    }
+    await _register(Value, project, values, conn=conn)
+    await _report(Value, project, list(values), conn=conn)

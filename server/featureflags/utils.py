@@ -1,6 +1,4 @@
-from collections import defaultdict
 from typing import Any
-from uuid import UUID
 
 from aiopg.sa import Engine, SAConnection
 from sqlalchemy import cast
@@ -32,18 +30,6 @@ class ArrayOfEnum(ARRAY):
                 return []
 
         return wrapper
-
-
-class EntityCache:
-    """
-    Caches entity ids during request
-    """
-
-    def __init__(self) -> None:
-        self.project: dict[str, UUID] = {}
-        self.flag: defaultdict[UUID, dict[str, UUID]] = defaultdict(dict)
-        self.value: defaultdict[UUID, dict[str, UUID]] = defaultdict(dict)
-        self.variable: defaultdict[UUID, dict[str, UUID]] = defaultdict(dict)
 
 
 async def select_scalar(conn: SAConnection, stmt: Any) -> Any:
