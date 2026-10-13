@@ -16,6 +16,7 @@ import csv
 import json
 import os
 import time
+from http import HTTPStatus
 
 from locust import HttpUser, constant, events, task
 from locust.exception import StopUser
@@ -47,9 +48,8 @@ class StreamUser(HttpUser):
                 json={"project": PROJECT, "version": 0, "flags": FLAGS},
                 catch_response=True,
             ) as response:
-                if not response.ok:
+                if not succeeded(response):
                     # a client that can't start never counts as up to date
-                    response.failure(f"status {response.status_code}")
                     raise StopUser()
                 self.version = response.json()["version"]
 
@@ -94,8 +94,7 @@ class StreamUser(HttpUser):
             },
             catch_response=True,
         ) as response:
-            if not response.ok:
-                response.failure(f"status {response.status_code}")
+            if not succeeded(response):
                 return False
             data = response.json()
             names = {flag["name"] for flag in data["flags"]}
@@ -105,6 +104,18 @@ class StreamUser(HttpUser):
                 )
                 return False
             return True
+
+
+def succeeded(response) -> bool:
+    """
+    Mark a failed request as such. Not response.ok: for a connection error
+    (e.g. a keep-alive connection the server just closed) it re-raises the
+    error, which aborts the task without counting the request at all.
+    """
+    if response.error is not None or response.status_code != HTTPStatus.OK:
+        response.failure(response.error or f"status {response.status_code}")
+        return False
+    return True
 
 
 @events.test_stop.add_listener
