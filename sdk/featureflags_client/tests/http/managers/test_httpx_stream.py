@@ -176,3 +176,62 @@ def test_reconnect_delays_are_spread():
 
     assert all(4 <= delay <= 8 for delay in delays)
     assert max(delays) - min(delays) > 3
+
+
+@pytest.mark.asyncio
+async def test_streams_closed_right_away_keep_backing_off(monkeypatch):
+    # a server that accepts the stream and drops it at once must not be
+    # reconnected to at the minimum interval forever
+    async def accept_and_close(request):
+        if request.url.path == "/flags/sync":
+            return httpx.Response(
+                200, json={"version": 1, "flags": [], "values": []}
+            )
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, content=b""
+        )
+
+    delays = []
+
+    def record(interval):
+        delays.append(interval)
+        return interval
+
+    monkeypatch.setattr(httpx_manager, "jittered", record)
+    manager = make_manager(FakeServer(), stream=True)
+    manager._session = httpx.AsyncClient(
+        base_url="http://flags.server.example",
+        transport=httpx.MockTransport(accept_and_close),
+    )
+    task = asyncio.create_task(manager._stream_loop())
+    await wait_for(lambda: len(delays) >= 4)
+    task.cancel()
+    await manager.close()
+
+    assert delays[:4] == [0.01, 0.02, 0.04, 0.08]
+
+
+@pytest.mark.asyncio
+async def test_backoff_resets_after_a_stream_that_lasted(monkeypatch):
+    server = FakeServer(version=1)
+    delays = []
+
+    def record(interval):
+        delays.append(interval)
+        return interval
+
+    monkeypatch.setattr(httpx_manager, "jittered", record)
+    monkeypatch.setattr(httpx_manager, "STREAM_STABLE_AFTER", 0.05)
+    manager = make_manager(server, stream=True)
+    task = asyncio.create_task(manager._stream_loop())
+
+    for _ in range(3):
+        await asyncio.wait_for(server.connected.wait(), TIMEOUT)
+        server.connected.clear()
+        await asyncio.sleep(0.1)  # longer than STREAM_STABLE_AFTER
+        await server.events.put(None)
+    await wait_for(lambda: len(delays) >= 3)
+    task.cancel()
+    await manager.close()
+
+    assert delays[:3] == [0.01, 0.01, 0.01]

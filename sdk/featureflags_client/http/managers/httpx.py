@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import time
 from enum import EnumMeta
 from typing import Any, Optional, Union
 
@@ -27,6 +28,12 @@ log = logging.getLogger(__name__)
 # The server sends a keep-alive comment every 15s, a silent stream for
 # longer than this is a dead connection.
 STREAM_READ_TIMEOUT = 45
+
+# Back off from scratch only after a stream that stayed up this long: a
+# server accepting and dropping streams at once would otherwise be retried
+# at the minimum interval forever (same idea as launchdarkly-eventsource's
+# retry_delay_reset_threshold).
+STREAM_STABLE_AFTER = 60
 
 
 def jittered(interval: float) -> float:
@@ -106,20 +113,25 @@ class HttpxManager(AsyncBaseManager):
         retry.send(None)
 
         while True:
+            self._stream_connected_at: Optional[float] = None
             try:
-                await self._consume_stream(retry)
+                await self._consume_stream()
                 log.info("Flags stream closed by server")
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 log.warning("Flags stream failed: %r", exc)
-            # every disconnect counts as a failure, so a server that keeps
-            # closing the stream right away is not hammered
+            connected_at = self._stream_connected_at
+            if (
+                connected_at is not None
+                and time.monotonic() - connected_at >= STREAM_STABLE_AFTER
+            ):
+                retry.send(True)
             interval = jittered(retry.send(False))
             log.info("Reconnecting to flags stream in %.1fs", interval)
             await asyncio.sleep(interval)
 
-    async def _consume_stream(self, retry: Any) -> None:
+    async def _consume_stream(self) -> None:
         async with aconnect_sse(
             self._session,
             "GET",
@@ -135,7 +147,7 @@ class HttpxManager(AsyncBaseManager):
             ),
         ) as event_source:
             event_source.response.raise_for_status()
-            retry.send(True)
+            self._stream_connected_at = time.monotonic()
             log.info("Flags stream connected")
 
             async for event in event_source.aiter_sse():
