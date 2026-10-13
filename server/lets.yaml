@@ -6,7 +6,8 @@ env:
   CURRENT_UID:
     sh: echo "`id -u`:`id -g`"
   BUILD_VERSION:
-    sh: git describe --dirty
+    # --always: this repo has no release tags (upstream tags were not merged)
+    sh: git describe --dirty --always
 
 commands:
   build-target:
