@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `d7e2a9b4c1f6`), so they only go up: a project deleted and created again
   continues above its old versions, which SDKs, their snapshots and the SSE
   hub would otherwise ignore. New projects start above 0.
+- `/flags/load` registers variables, flags and values with one query per
+  kind and refreshes "last reported" at most once a minute per row. It ran
+  two queries per flag, every one updating the same rows, so clients
+  starting together queued on row locks and then on the pool: 1000 clients
+  starting at 50/s saw 89% of their loads fail; now none do (0.48s mean).
 - New streams take the project version from memory while the listener is
   up, instead of each querying the database (with 10k streams connecting,
   the 10-connection pool timed out and most streams never got an event).
@@ -54,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   save re-checked the first one's flags and was rejected as a conflict.
 - `deleteProject` runs in one transaction; a failure halfway no longer
   leaves the project without its flags.
+- New flags and values get their creation time from the insert, not from
+  when the server started (`default=datetime.utcnow()` ran at import).
 - The SSE hub's reconnect backoff for its `LISTEN` connection resets after
   the connection stayed up for 60s. It only grew before, so after a few
   outages a later one waited the full 30s before reconnecting.
