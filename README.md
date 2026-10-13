@@ -1,5 +1,7 @@
 # FlagFlow
 
+[![Test](https://github.com/Album-dreamers/flagflow/actions/workflows/test.yaml/badge.svg)](https://github.com/Album-dreamers/flagflow/actions/workflows/test.yaml)
+
 功能开关与灰度发布服务。基于开源项目 [evo-company/featureflags](https://github.com/evo-company/featureflags)（FastAPI + PostgreSQL，已发布到 PyPI，v2.0.0 于 2026-07 发布）及其 Python SDK [featureflags-py](https://github.com/evo-company/featureflags-py) 改造：
 
 - 配置改动实时推送到客户端（SSE + PostgreSQL LISTEN/NOTIFY），在数据库重启、服务重启、多实例部署的情况下都不丢更新；
@@ -127,7 +129,7 @@ aiopg 默认自动提交，改规则、版本号加一、写变更日志是分�
 ## 运行
 
 ```bash
-# 服务端测试：沿用上游的 lets + Docker（PostgreSQL 在容器里）
+# 服务端测试：沿用上游的 lets + Docker，PostgreSQL 13 跑在容器里（CI 也是这样跑的）
 cd server && lets test
 
 # SDK 测试
@@ -136,6 +138,19 @@ python -m pytest featureflags_client/tests
 ```
 
 压测需要先配好服务端的环境变量和 locust，步骤见 [`server/loadtest/README.md`](server/loadtest/README.md)。服务端的其他用法见 [`server/README.rst`](server/README.rst)。
+
+## 已知限制
+
+**大量客户端同时启动时，`/flags/load` 会失败。** 1000 个客户端以每秒 50 个的速度启动，每个都先调一次 `/flags/load`，单个服务进程下的结果：
+
+| 连接池 `postgres.pool_maxsize` | `/flags/load` 失败率 | 追上最新版本的客户端 |
+|---|---|---|
+| 10（默认值） | 88.9% | 157 / 1000 |
+| 40 | 48.0% | 520 / 1000 |
+
+把连接池做成可配置能缓解，但解决不了。根源在于每次 `/flags/load` 都要逐个开关去查询，并更新同一批开关行的 `reported_timestamp`。客户端同时启动时，这些写入在同一批行上互相排队，每个请求占着连接的时间被拉长，于是在连接池上排队超时。连接池调到 40 后，`/flags/load` 的平均耗时反而从 11.6 s 升到 22.0 s。
+
+要根治，需要批量写入上报时间并限制写入频率。这会改变上游"每次加载都刷新上报时间"的行为，暂时没有做。
 
 ## 许可证
 

@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   client loaded and reject the save if the flag/value changed since.
 - **Load test** (`loadtest/`): locust users holding SSE streams like the SDK
   does, with commit-to-client latency reports.
+- `postgres.pool_maxsize` (default 10) sets the database connections per
+  process.
 
 ### Changed
 - `saveFlag`, `resetFlag`, `deleteFlag` and their value counterparts apply
@@ -49,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Base` returned the sign-in redirect before some of its hooks.
 - The index page works on Starlette 1.x (`TemplateResponse` takes the
   request first).
+- The Docker image builds again: the base moved from bullseye (end of life,
+  its security archive 404s on libpq-dev) to bookworm, and hishel is pinned
+  below 1 for pdm 2.26.
+- `lets` works in clones without release tags (`git describe --always`).
 - A save based on a stale view no longer silently drops conditions while
   reporting success.
 
