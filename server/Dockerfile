@@ -1,4 +1,5 @@
-FROM python:3.11-slim-bullseye as base
+# bullseye is past end of life, its security archive misses packages
+FROM python:3.11-slim-bookworm as base
 
 ENV PIP_VERSION=23.2.1
 ENV PDM_VERSION=2.26.0
@@ -24,7 +25,8 @@ RUN apt-get update && \
   git && \
   # install tools
   pip install --upgrade pip==${PIP_VERSION} && \
-  pip install pdm==${PDM_VERSION} && \
+  # pdm 2.26 breaks with hishel 1.x (No module named 'hishel._serializers')
+  pip install pdm==${PDM_VERSION} "hishel<1" && \
   pip install uv==${UV_VERSION} && \
   # configure
   pdm config cache_dir /pdm_cache && \
@@ -42,7 +44,7 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/list && \
   rm -rf $HOME/.cache
 
-FROM node:18-bullseye-slim as assets-base
+FROM node:18-bookworm-slim as assets-base
 ENV NODE_PATH=/node_modules
 ENV PATH=$PATH:/node_modules/.bin
 
