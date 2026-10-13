@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import func, select
 
 from featureflags.graph import actions
+from featureflags.graph.types import Action
 from featureflags.models import Changelog, Flag, Operator, Project, Value
 from featureflags.tests.state import (
     mk_auth_user,
@@ -261,3 +262,74 @@ async def test_version_is_readable_by_clients(db_engine, graphql):
         "flag": {"version": 1},
         "value": {"version": 0},
     }
+
+
+SAVE_TWO_FLAGS = """
+    mutation SaveTwo(
+        $first: [SaveFlagOperation!]!, $firstVersion: Int,
+        $second: [SaveFlagOperation!]!, $secondVersion: Int
+    ) {
+        first: saveFlag(operations: $first, version: $firstVersion) { errors }
+        second: saveFlag(operations: $second, version: $secondVersion) {
+            errors
+        }
+    }
+"""
+
+
+async def changelog_actions(conn, flag):
+    result = await conn.execute(
+        select([Changelog.actions]).where(Changelog.flag == flag.id)
+    )
+    return [list(row.actions) for row in await result.fetchall()]
+
+
+async def test_rejected_save_leaves_nothing_for_the_next_one(
+    db_engine, conn, graphql
+):
+    # one request: a save from a stale view (rejected), then a valid one
+    user = await mk_auth_user(db_engine)
+    flag = await mk_flag(db_engine, enabled=False)
+    await graphql(user, SAVE_FLAG, operations=enable(flag), version=0)
+
+    result = await graphql(
+        user,
+        SAVE_TWO_FLAGS,
+        first=enable(flag),
+        firstVersion=0,
+        second=disable(flag),
+        secondVersion=1,
+    )
+
+    assert save_errors(result, "first")
+    assert save_errors(result, "second") is None
+    # the rejected enable must not be audited along with the disable
+    assert await changelog_actions(conn, flag) == [
+        [Action.ENABLE_FLAG],
+        [Action.DISABLE_FLAG],
+    ]
+
+
+async def test_two_saves_in_one_request_are_independent(
+    db_engine, conn, graphql
+):
+    user = await mk_auth_user(db_engine)
+    project = await mk_project(db_engine, version=0)
+    flag_a = await mk_flag(db_engine, enabled=False, project=project)
+    flag_b = await mk_flag(db_engine, enabled=False, project=project)
+
+    result = await graphql(
+        user,
+        SAVE_TWO_FLAGS,
+        first=enable(flag_a),
+        firstVersion=0,
+        second=enable(flag_b),
+        secondVersion=0,
+    )
+
+    # the second save must not re-check or re-log the first one's flag
+    assert save_errors(result, "first") is None
+    assert save_errors(result, "second") is None
+    assert await flag_state(conn, flag_a) == (True, 1)
+    assert await flag_state(conn, flag_b) == (True, 1)
+    assert await changelog_actions(conn, flag_a) == [[Action.ENABLE_FLAG]]

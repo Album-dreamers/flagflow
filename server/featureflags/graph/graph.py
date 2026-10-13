@@ -51,11 +51,13 @@ from featureflags.graph.types import (
     AddConditionOp,
     AddValueConditionOp,
     AuthResult,
+    Changes,
     DeleteFlagResult,
     DeleteNotificationChannelResult,
     DeleteProjectResult,
     DeleteValueResult,
     DeleteVariableResult,
+    DirtyProjects,
     GraphContext,
     Operation,
     ResetFlagResult,
@@ -66,6 +68,7 @@ from featureflags.graph.types import (
     SetProjectNotificationChannelsResult,
     TestNotificationChannelResult,
     ValueAction,
+    ValuesChanges,
 )
 from featureflags.graph.utils import LinkQuery, is_valid_uuid
 from featureflags.metrics import wrap_metric
@@ -1304,6 +1307,23 @@ async def sing_out(ctx: dict) -> AuthResult:
     return AuthResult(None)
 
 
+def _mutation_context(ctx: dict) -> dict:
+    """
+    Fresh change tracking for one mutation.
+
+    The context is shared by every mutation of a request. A rejected save's
+    changes would be audited by the next save, and a second save would
+    re-check and re-log the first one's flags.
+    """
+    return {
+        **ctx,
+        GraphContext.DIRTY_PROJECTS: DirtyProjects(),
+        GraphContext.CHANGES: Changes(),
+        GraphContext.VALUES_CHANGES: ValuesChanges(),
+        GraphContext.CHECK_IDS: {},
+    }
+
+
 async def _apply_flag_operations(
     ctx: dict, operations: list, expected_version: int | None
 ) -> None:
@@ -1369,6 +1389,7 @@ async def _apply_flag_operations(
 
 @pass_context
 async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:
+    ctx = _mutation_context(ctx)
     operations = options["operations"]
 
     if not operations:
@@ -1392,6 +1413,7 @@ async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:
 
 @pass_context
 async def reset_flag(ctx: dict, options: dict) -> ResetFlagResult:
+    ctx = _mutation_context(ctx)
     async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         await actions.reset_flag(
             options["id"],
@@ -1421,6 +1443,7 @@ async def reset_flag(ctx: dict, options: dict) -> ResetFlagResult:
 
 @pass_context
 async def delete_flag(ctx: dict, options: dict) -> DeleteFlagResult:
+    ctx = _mutation_context(ctx)
     flag_uuid = UUID(hex=options["id"])
     async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         flag_row = await select_first(
@@ -1523,6 +1546,7 @@ async def _apply_value_operations(
 
 @pass_context
 async def save_value(ctx: dict, options: dict) -> SaveValueResult:
+    ctx = _mutation_context(ctx)
     operations = options["operations"]
 
     if not operations:
@@ -1546,6 +1570,7 @@ async def save_value(ctx: dict, options: dict) -> SaveValueResult:
 
 @pass_context
 async def reset_value(ctx: dict, options: dict) -> ResetValueResult:
+    ctx = _mutation_context(ctx)
     async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         await actions.reset_value(
             options["id"],
@@ -1575,6 +1600,7 @@ async def reset_value(ctx: dict, options: dict) -> ResetValueResult:
 
 @pass_context
 async def delete_value(ctx: dict, options: dict) -> DeleteValueResult:
+    ctx = _mutation_context(ctx)
     value_uuid = UUID(hex=options["id"])
     async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
         value_row = await select_first(
