@@ -6,6 +6,7 @@ not lost while the listener is reconnecting.
 import asyncio
 import json
 import socket
+import time
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
 import aiopg
@@ -17,6 +18,7 @@ from sqlalchemy import select, text, update
 from featureflags.config import config
 from featureflags.graph import actions
 from featureflags.models import Project
+from featureflags.services import project_versions
 from featureflags.services.project_versions import (
     CHANNEL,
     ProjectVersionHub,
@@ -423,3 +425,51 @@ async def test_shutdown_closes_open_streams(db_engine, http_server):
         with pytest.raises(StopAsyncIteration):
             await next_event(events)
         await asyncio.wait_for(http_server.task, TIMEOUT)
+
+
+async def reconnect_delays(monkeypatch, hub, listening_for):
+    # the listener connects, stays up for `listening_for` seconds, then fails
+    async def listen_once():
+        hub.listening.set()
+        hub._listening_since = time.monotonic() - listening_for
+        raise ConnectionError("connection lost")
+
+    delays = []
+
+    async def sleep(delay):
+        delays.append(delay)
+        if len(delays) == 4:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(hub, "_listen_once", listen_once)
+    monkeypatch.setattr(project_versions.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await hub.run()
+    return delays
+
+
+async def test_listener_keeps_backing_off_while_it_keeps_failing(
+    db_engine, monkeypatch
+):
+    hub = make_hub(db_engine, reconnect_delay=1, max_reconnect_delay=30)
+
+    assert await reconnect_delays(monkeypatch, hub, listening_for=0) == [
+        1,
+        2,
+        4,
+        8,
+    ]
+
+
+async def test_listener_backoff_resets_after_it_stayed_up(
+    db_engine, monkeypatch
+):
+    # a long healthy run must not leave the next outage at 30s
+    hub = make_hub(db_engine, reconnect_delay=1, max_reconnect_delay=30)
+
+    assert await reconnect_delays(monkeypatch, hub, listening_for=3600) == [
+        1,
+        1,
+        1,
+        1,
+    ]

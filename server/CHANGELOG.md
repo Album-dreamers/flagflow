@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   save re-checked the first one's flags and was rejected as a conflict.
 - `deleteProject` runs in one transaction; a failure halfway no longer
   leaves the project without its flags.
+- The SSE hub's reconnect backoff for its `LISTEN` connection resets after
+  the connection stayed up for 60s. It only grew before, so after a few
+  outages a later one waited the full 30s before reconnecting.
 - Deleting a flag or value bumps the project version, so clients stop
   evaluating it.
 - **UI**: a signed-out visit rendered a blank page (React error #300):

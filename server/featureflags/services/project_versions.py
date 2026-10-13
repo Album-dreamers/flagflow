@@ -16,6 +16,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections import defaultdict
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager, suppress
@@ -97,6 +98,7 @@ class ProjectVersionHub:
         poll_interval: float = 1.0,
         reconnect_delay: float = 1.0,
         max_reconnect_delay: float = 30.0,
+        stable_after: float = 60.0,
         timeout: float = 10.0,
     ) -> None:
         self._db_engine = db_engine
@@ -106,6 +108,8 @@ class ProjectVersionHub:
         self._poll_interval = poll_interval
         self._reconnect_delay = reconnect_delay
         self._max_reconnect_delay = max_reconnect_delay
+        self._stable_after = stable_after
+        self._listening_since: float | None = None
         self._timeout = timeout
         self._subscriptions: dict[str, set[Subscription]] = defaultdict(set)
         self.listening = asyncio.Event()
@@ -207,6 +211,13 @@ class ProjectVersionHub:
             self._versions.clear()
             self._generation += 1
             LISTENER_RECONNECTS_COUNTER.inc()
+            # back off from scratch after a connection that held up, or a
+            # long healthy run leaves the next outage at the maximum delay
+            since, self._listening_since = self._listening_since, None
+            if since is not None and time.monotonic() - since >= (
+                self._stable_after
+            ):
+                delay = self._reconnect_delay
             await asyncio.sleep(delay)
             delay = min(delay * 2, self._max_reconnect_delay)
 
@@ -218,6 +229,7 @@ class ProjectVersionHub:
             # visible in the table.
             await self.reconcile()
             self.listening.set()
+            self._listening_since = time.monotonic()
             log.info("Listening for project version changes")
 
             while True:
