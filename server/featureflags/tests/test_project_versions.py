@@ -12,6 +12,7 @@ from contextlib import AsyncExitStack, asynccontextmanager, suppress
 import aiopg
 import httpx
 import pytest
+import sse_starlette.sse
 import uvicorn
 from sqlalchemy import select, text, update
 
@@ -327,6 +328,12 @@ def free_port():
 @pytest.fixture
 async def http_server():
     from featureflags.http.app import create_app
+
+    # sse-starlette marks per thread that its shutdown watcher runs, and only
+    # its own exit clears the mark. A watcher still pending when an earlier
+    # test's event loop closed leaves it set, so no watcher would run in
+    # this loop and streams would ignore shutdown.
+    sse_starlette.sse._thread_state.shutdown_state = None
 
     port = free_port()
     server = uvicorn.Server(
