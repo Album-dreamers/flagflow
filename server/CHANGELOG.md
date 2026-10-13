@@ -40,11 +40,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/flags/load` and `/flags/sync` build a project's flags once per version
   (`async-lru`, concurrent requests share the build): after a change every
   connected client syncs to the same version at the same moment.
+- Project versions come from one sequence (`project_version_seq`, migration
+  `d7e2a9b4c1f6`), so they only go up: a project deleted and created again
+  continues above its old versions, which SDKs, their snapshots and the SSE
+  hub would otherwise ignore. New projects start above 0.
 - New streams take the project version from memory while the listener is
   up, instead of each querying the database (with 10k streams connecting,
   the 10-connection pool timed out and most streams never got an event).
 
 ### Fixed
+- Mutations in one GraphQL request no longer share change tracking: a
+  rejected save was audited by the next save in the request, and a second
+  save re-checked the first one's flags and was rejected as a conflict.
+- `deleteProject` runs in one transaction; a failure halfway no longer
+  leaves the project without its flags.
 - Deleting a flag or value bumps the project version, so clients stop
   evaluating it.
 - **UI**: a signed-out visit rendered a blank page (React error #300):
