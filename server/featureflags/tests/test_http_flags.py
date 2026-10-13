@@ -3,11 +3,12 @@ import asyncio
 import pytest
 from sqlalchemy import select
 
+from featureflags.graph import actions
 from featureflags.http.repositories import flags as flags_module
 from featureflags.http.repositories.flags import FlagsRepository
 from featureflags.http.types import PreloadFlagsRequest, SyncFlagsRequest
 from featureflags.models import Flag, Project
-from featureflags.tests.state import mk_flag, mk_project
+from featureflags.tests.state import mk_auth_user, mk_flag, mk_project
 from featureflags.utils import select_scalar
 
 
@@ -187,3 +188,31 @@ async def test_syncs_to_the_same_version_build_flags_once(
     assert sorted(f.name for f in response.flags) == sorted(
         [flag.name, other.name]
     )
+
+
+DELETE_PROJECT = """
+    mutation DeleteProject($id: String!) { deleteProject(id: $id) { error } }
+"""
+
+
+class _FailOnUse:
+    def __getattr__(self, name):
+        raise RuntimeError("simulated failure")
+
+
+@pytest.mark.asyncio
+async def test_failed_project_delete_keeps_everything(
+    db_engine, graphql, monkeypatch
+):
+    # deleteProject removes flags before values; failing in between must
+    # not leave a project without its flags
+    project = await mk_project(db_engine)
+    flag = await mk_flag(db_engine, project=project)
+    monkeypatch.setattr(actions, "Value", _FailOnUse())
+
+    user = await mk_auth_user(db_engine)
+    result = await graphql(user, DELETE_PROJECT, id=str(project.id))
+
+    assert result["data"]["deleteProject"]["error"]
+    assert await project_id_by_name(db_engine, project.name) == project.id
+    assert await flag_id_by_name(db_engine, flag.name) == flag.id

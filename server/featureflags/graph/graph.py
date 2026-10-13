@@ -1654,16 +1654,17 @@ async def delete_variable(ctx: dict, options: dict) -> DeleteVariableResult:
 
 @pass_context
 async def delete_project(ctx: dict, options: dict) -> DeleteProjectResult:
-    async with ctx[GraphContext.DB_ENGINE].acquire() as conn:
-        project_uuid = UUID(options["id"])
-
-        try:
+    project_uuid = UUID(options["id"])
+    # caught outside the transaction, so a failure rolls back every table
+    # instead of committing the half that was already deleted
+    try:
+        async with ctx[GraphContext.DB_ENGINE].acquire() as conn, conn.begin():
             await actions.delete_project(
                 project_uuid,
                 conn=conn,
             )
-        except Exception as e:
-            return DeleteProjectResult(str(e))
+    except Exception as e:
+        return DeleteProjectResult(str(e))
 
     return DeleteProjectResult(None)
 
