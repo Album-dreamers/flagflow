@@ -18,6 +18,7 @@ import os
 import time
 
 from locust import HttpUser, constant, events, task
+from locust.exception import StopUser
 
 PROJECT = os.environ.get("LOADTEST_PROJECT", "loadtest")
 OUT = os.environ.get("LOADTEST_OUT", "loadtest-out")
@@ -41,11 +42,16 @@ class StreamUser(HttpUser):
     def on_start(self) -> None:
         self.version = None
         if PRELOAD:
-            response = self.client.post(
+            with self.client.post(
                 "/flags/load",
                 json={"project": PROJECT, "version": 0, "flags": FLAGS},
-            )
-            self.version = response.json()["version"]
+                catch_response=True,
+            ) as response:
+                if not response.ok:
+                    # a client that can't start never counts as up to date
+                    response.failure(f"status {response.status_code}")
+                    raise StopUser()
+                self.version = response.json()["version"]
 
     @task
     def stream(self) -> None:
@@ -69,19 +75,36 @@ class StreamUser(HttpUser):
                     continue
                 if version <= self.version:
                     continue
-                if SYNC:
-                    self.client.post(
-                        "/flags/sync",
-                        json={
-                            "project": PROJECT,
-                            "version": self.version,
-                            "flags": FLAGS,
-                            "values": [],
-                        },
-                    )
+                if SYNC and not self.sync(version):
+                    # stays behind: the next event or reconnect retries
+                    continue
                 received.append((id(self), version, received_at, time.time()))
                 self.version = version
         # stream closed by the server: the task runs again and reconnects
+
+    def sync(self, version: int) -> bool:
+        """Fetch the flags; only a response at `version` with them counts."""
+        with self.client.post(
+            "/flags/sync",
+            json={
+                "project": PROJECT,
+                "version": self.version,
+                "flags": FLAGS,
+                "values": [],
+            },
+            catch_response=True,
+        ) as response:
+            if not response.ok:
+                response.failure(f"status {response.status_code}")
+                return False
+            data = response.json()
+            names = {flag["name"] for flag in data["flags"]}
+            if data["version"] < version or not names >= set(FLAGS):
+                response.failure(
+                    f"version {data['version']} < {version} or flags missing"
+                )
+                return False
+            return True
 
 
 @events.test_stop.add_listener
