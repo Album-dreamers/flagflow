@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   kind and refreshes "last reported" at most once a minute per row. It ran
   two queries per flag, every one updating the same rows, so clients
   starting together queued on row locks and then on the pool: 1000 clients
-  starting at 50/s saw 89% of their loads fail; now none do (0.48s mean).
+  starting at 50/s saw 89% of their loads fail; now none do (0.45s mean).
 - New streams take the project version from memory while the listener is
   up, instead of each querying the database (with 10k streams connecting,
   the 10-connection pool timed out and most streams never got an event).
