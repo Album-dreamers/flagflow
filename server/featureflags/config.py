@@ -45,6 +45,9 @@ class PostgresSettings(BaseSettings):
     password: str = Field(..., alias="PGPASS")
     database: str
     timeout: int = 10
+    # Connections per process. Every /flags/load holds one for a series of
+    # queries, so many clients starting at once wait here (aiopg's default)
+    pool_maxsize: int = 10
 
     @property
     def dsn(self) -> str:

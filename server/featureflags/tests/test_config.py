@@ -74,3 +74,16 @@ def test_readonly_parses_from_yaml() -> None:
     config = Config(**data)
 
     assert config.readonly is True
+
+
+async def test_pool_maxsize_sizes_the_connection_pool(monkeypatch) -> None:
+    from featureflags.config import config
+    from featureflags.services.db import init_db_engine
+
+    monkeypatch.setattr(config.postgres, "pool_maxsize", 3)
+    engines = init_db_engine()
+    engine = await anext(engines)
+    try:
+        assert engine.maxsize == 3
+    finally:
+        await engines.aclose()

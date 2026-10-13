@@ -29,6 +29,7 @@ postgres:
   port: 5432
   database: featureflags
   timeout: 10
+  pool_maxsize: 10
 
 ldap:
   host: ldap://ldap:3893

@@ -11,6 +11,7 @@ async def init_db_engine() -> AsyncGenerator[aiopg.sa.Engine, None]:
         echo=config.debug,
         enable_hstore=False,
         timeout=config.postgres.timeout,
+        maxsize=config.postgres.pool_maxsize,
     ) as engine:
         try:
             yield engine
