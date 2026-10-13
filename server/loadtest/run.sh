@@ -69,6 +69,9 @@ wait $LOCUST_PID || true
 for pid in $WORKERS; do
     while kill -0 "$pid" 2> /dev/null; do sleep 1; done
 done
+# stop the server first so server.csv ends where the run does
+kill $SERVER 2> /dev/null || true
+wait $SERVER 2> /dev/null || true
 
 "$(dirname "$LOCUST")/python" loadtest/report.py "$OUT" --users "$USERS"
 awk -F, 'NR > 1 { if ($2 > rss) rss = $2; cpu += $3; n++ }
