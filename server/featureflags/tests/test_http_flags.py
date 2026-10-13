@@ -331,3 +331,18 @@ async def test_concurrent_loads_register_new_flags_once(flags_repo, db_engine):
         )
     assert flag_count == 2
 
+
+@pytest.mark.asyncio
+async def test_new_flags_are_stamped_when_registered(flags_repo, db_engine):
+    # the defaults were datetime.utcnow() called once at import: every new
+    # flag got the server's start time as its creation time
+    before = datetime.utcnow()
+    await flags_repo.load(
+        PreloadFlagsRequest(project="stamped", version=0, flags=["NEW"])
+    )
+    async with db_engine.acquire() as conn:
+        created = await select_scalar(
+            conn,
+            select([Flag.created_timestamp]).where(Flag.name == "NEW"),
+        )
+    assert created >= before

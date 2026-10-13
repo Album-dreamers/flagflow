@@ -116,11 +116,11 @@ class Flag(Base):
     enabled = Column(Boolean)
     created_timestamp = Column(
         TIMESTAMP,
-        default=datetime.utcnow(),
+        default=datetime.utcnow,
         nullable=True,
     )
     reported_timestamp = Column(
-        TIMESTAMP, default=datetime.utcnow(), nullable=True
+        TIMESTAMP, default=datetime.utcnow, nullable=True
     )
     # bumped on every change, used to reject saves from a stale view
     version = Column(Integer, nullable=False, default=0, server_default="0")
@@ -208,10 +208,10 @@ class Value(Base):
     value_default = Column(String, nullable=False)
     value_override = Column(String, nullable=False)
     created_timestamp = Column(
-        TIMESTAMP, default=datetime.utcnow(), nullable=True
+        TIMESTAMP, default=datetime.utcnow, nullable=True
     )
     reported_timestamp = Column(
-        TIMESTAMP, default=datetime.utcnow(), nullable=True
+        TIMESTAMP, default=datetime.utcnow, nullable=True
     )
     # bumped on every change, used to reject saves from a stale view
     version = Column(Integer, nullable=False, default=0, server_default="0")
