@@ -7,7 +7,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from aiopg.sa import SAConnection
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from featureflags.http.types import (
@@ -16,7 +16,13 @@ from featureflags.http.types import (
 from featureflags.http.types import (
     Variable as RequestVariable,
 )
-from featureflags.models import Flag, Project, Value, Variable
+from featureflags.models import (
+    PROJECT_VERSION_SEQUENCE,
+    Flag,
+    Project,
+    Value,
+    Variable,
+)
 from featureflags.utils import EntityCache
 
 
@@ -30,7 +36,14 @@ async def _select_project(name: str, *, conn: SAConnection) -> UUID:
 async def _insert_project(name: str, *, conn: SAConnection) -> UUID:
     result = await conn.execute(
         insert(Project.__table__)
-        .values({Project.id: uuid4(), Project.name: name, Project.version: 0})
+        .values(
+            {
+                Project.id: uuid4(),
+                Project.name: name,
+                # above any version a deleted project of this name had
+                Project.version: func.nextval(PROJECT_VERSION_SEQUENCE),
+            }
+        )
         .on_conflict_do_nothing()
         .returning(Project.id)
     )

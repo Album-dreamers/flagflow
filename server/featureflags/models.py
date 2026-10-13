@@ -79,6 +79,10 @@ class LocalIdMap(Base):
     timestamp = Column(TIMESTAMP, nullable=False)
 
 
+# created by migration d7e2a9b4c1f6; every project version is taken from it
+PROJECT_VERSION_SEQUENCE = "project_version_seq"
+
+
 class Project(Base):
     __tablename__ = "project"
 

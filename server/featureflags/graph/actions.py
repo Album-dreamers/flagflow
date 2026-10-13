@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from aiopg.sa import SAConnection
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from featureflags.graph.constants import AUTH_SESSION_TTL
@@ -21,6 +21,7 @@ from featureflags.graph.types import (
 )
 from featureflags.graph.utils import gen_id, get_auth_user, update_map
 from featureflags.models import (
+    PROJECT_VERSION_SEQUENCE,
     AuthSession,
     Changelog,
     Check,
@@ -352,7 +353,15 @@ async def bump_project_versions(where: Any, *, conn: SAConnection) -> None:
     result = await conn.execute(
         update(Project.__table__)
         .where(where)
-        .values({Project.version: Project.version + 1})
+        # from the shared sequence, so a recreated project continues above
+        # its old versions; + 1 keeps it moving if a row was set by hand
+        .values(
+            {
+                Project.version: func.greatest(
+                    Project.version + 1, func.nextval(PROJECT_VERSION_SEQUENCE)
+                )
+            }
+        )
         .returning(Project.name, Project.version)
     )
     for row in await result.fetchall():

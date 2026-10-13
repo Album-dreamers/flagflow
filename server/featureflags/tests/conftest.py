@@ -58,6 +58,10 @@ async def migrate_down(
             await connection.execute(
                 text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE")
             )
+            # not owned by a column, so RESTART IDENTITY leaves it alone
+            await connection.execute(
+                text("ALTER SEQUENCE project_version_seq RESTART")
+            )
 
 
 @pytest_asyncio.fixture(autouse=True)

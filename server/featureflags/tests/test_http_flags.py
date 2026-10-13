@@ -96,7 +96,8 @@ async def test_load_registers_entities_when_not_readonly(flags_repo, db_engine):
 
     response = await flags_repo.load(request)
 
-    assert response.version == 0
+    # new projects take their first version from the version sequence
+    assert response.version > 0
     assert [f.name for f in response.flags] == ["NEW_FLAG"]
     assert await project_id_by_name(db_engine, "new-project") is not None
     assert await flag_id_by_name(db_engine, "NEW_FLAG") is not None
@@ -193,6 +194,30 @@ async def test_syncs_to_the_same_version_build_flags_once(
 DELETE_PROJECT = """
     mutation DeleteProject($id: String!) { deleteProject(id: $id) { error } }
 """
+
+
+@pytest.mark.asyncio
+async def test_recreated_project_starts_above_its_old_versions(
+    flags_repo, db_engine, graphql
+):
+    # SDKs, snapshots and the SSE hub only accept versions above the one
+    # they have; a project recreated from 0 would never reach them again
+    request = PreloadFlagsRequest(project="recreated", version=0, flags=["F"])
+    await flags_repo.load(request)
+    project_id = await project_id_by_name(db_engine, "recreated")
+    for _ in range(3):
+        async with db_engine.acquire() as conn, conn.begin():
+            await actions.bump_project_versions(
+                Project.id == project_id, conn=conn
+            )
+    old_version = (await flags_repo.load(request)).version
+
+    user = await mk_auth_user(db_engine)
+    result = await graphql(user, DELETE_PROJECT, id=str(project_id))
+    assert result["data"]["deleteProject"]["error"] is None
+    assert await project_id_by_name(db_engine, "recreated") is None
+
+    assert (await flags_repo.load(request)).version > old_version
 
 
 class _FailOnUse:
