@@ -106,7 +106,7 @@ aiopg 默认自动提交，改规则、版本号加一、写变更日志是分�
 - 项目有 20 个开关；
 - 延迟从版本提交那一刻算到客户端收到为止，包含压测端解析流的开销。
 
-脚本和用法见 [`server/loadtest/`](server/loadtest/README.md)。
+脚本和用法见 [`server/loadtest/`](server/loadtest/README.md)。下面每个数字的原始数据、机器配置和运行命令都在 [`server/loadtest/results/`](server/loadtest/results/README.md)，可以用 `report.py` 重新算出来。
 
 **单实例推送扩散**（客户端只保持 SSE 连接）
 

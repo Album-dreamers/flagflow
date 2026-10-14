@@ -29,6 +29,9 @@ loadtest/run.sh 1000 2 10 3
 `RATE` per second, publishes once they are all connected, and prints the
 report.
 
+The runs behind the numbers in the root README are in
+[`results/`](results/README.md), with the machine and the commands.
+
 `FAULT` runs a command between two batches of versions, e.g. restarting
 Postgres (`pg_ctl restart -w`); the clients must still end up at the final
 version.

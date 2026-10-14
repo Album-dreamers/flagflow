@@ -11,6 +11,7 @@ Latencies are measured from the commit of a version:
 import argparse
 import csv
 import glob
+import gzip
 import os
 import statistics
 
@@ -38,19 +39,23 @@ def main(args: argparse.Namespace) -> None:
         }
 
     rows = []
-    for path in glob.glob(os.path.join(args.out, "recv-*.csv")):
-        with open(path) as file:
+    for path in glob.glob(os.path.join(args.out, "recv-*.csv*")):
+        # the runs kept in results/ are gzipped
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt") as file:
             rows.extend(csv.DictReader(file))
 
     users = {r["user"] for r in rows}
     event, applied = [], []
     per_version: dict[int, list[float]] = {}
+    per_version_event: dict[int, list[float]] = {}
     last_version: dict[str, int] = {}
     for r in rows:
         version = int(r["version"])
         if version not in committed:
             continue
         event.append(float(r["received_at"]) - committed[version])
+        per_version_event.setdefault(version, []).append(event[-1])
         applied.append(float(r["synced_at"]) - committed[version])
         per_version.setdefault(version, []).append(
             float(r["synced_at"]) - committed[version]
@@ -82,6 +87,13 @@ def main(args: argparse.Namespace) -> None:
             [max(v) for v in per_version.values()],
         )
     )
+    if args.per_version:
+        for version in sorted(per_version_event):
+            print(
+                summary(
+                    f"  version {version} -> event", per_version_event[version]
+                )
+            )
 
 
 if __name__ == "__main__":
@@ -89,5 +101,10 @@ if __name__ == "__main__":
     parser.add_argument("out")
     parser.add_argument(
         "--users", type=int, help="number of users that should have connected"
+    )
+    parser.add_argument(
+        "--per-version",
+        action="store_true",
+        help="also report commit -> event for each version",
     )
     main(parser.parse_args())

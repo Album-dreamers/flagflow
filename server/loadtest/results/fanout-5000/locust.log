@@ -1,0 +1,25 @@
+[2026-10-12 19:03:23,287] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Starting Locust 2.46.7
+[2026-10-12 19:03:23,351] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_0be55bd78412422d8f05f48abd9fe03d (index 0) reported as ready. 1 workers connected.
+[2026-10-12 19:03:23,353] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_f087396778cb4d4ba6061e02b0567ced (index 1) reported as ready. 2 workers connected.
+[2026-10-12 19:03:23,356] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_c6551eac67bb4a7c9cfe0a3028437bfa (index 2) reported as ready. 3 workers connected.
+[2026-10-12 19:03:24,338] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Run time limit set to 75 seconds
+[2026-10-12 19:03:24,338] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Sending spawn jobs of 5000 users at 200.00 spawn rate to 3 ready workers
+[2026-10-12 19:03:48,564] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: All users spawned: {"StreamUser": 5000} (5000 total users)
+[2026-10-12 19:04:39,339] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: --run-time limit reached, shutting down
+[2026-10-12 19:04:39,341] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:04:39,341] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:04:39,341] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:04:40,146] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:04:40,203] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:04:40,248] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:04:40,344] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                         0     0(0.00%) |      0       0       0      0 |    0.00        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+

@@ -1,0 +1,36 @@
+[2026-10-13 18:32:29,412] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Starting Locust 2.46.7
+[2026-10-13 18:32:29,467] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_5db64b26a1b64d3499c3cbf90c0ff8d5 (index 0) reported as ready. 1 workers connected.
+[2026-10-13 18:32:29,468] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_498d0d02920d4bfa891f5ae08cca036d (index 1) reported as ready. 2 workers connected.
+[2026-10-13 18:32:30,459] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Run time limit set to 90 seconds
+[2026-10-13 18:32:30,459] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Sending spawn jobs of 1000 users at 50.00 spawn rate to 2 ready workers
+[2026-10-13 18:32:49,606] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: All users spawned: {"StreamUser": 1000} (1000 total users)
+[2026-10-13 18:34:00,459] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: --run-time limit reached, shutting down
+[2026-10-13 18:34:00,461] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-13 18:34:00,461] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-13 18:34:00,635] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-13 18:34:00,635] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_498d0d02920d4bfa891f5ae08cca036d' (index 1) quit. 0 workers ready.
+[2026-10-13 18:34:00,742] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-13 18:34:00,742] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_5db64b26a1b64d3499c3cbf90c0ff8d5' (index 0) quit. 0 workers ready.
+[2026-10-13 18:34:00,743] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: The last worker quit, stopping test.
+[2026-10-13 18:34:01,462] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 1)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /flags/load                                                                     1000     0(0.00%) |    454     188     794    460 |   14.34        0.00
+POST     /flags/sync                                                                     5000    40(0.80%) |   3121     323    4705   3300 |   71.72        0.57
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      6000    40(0.67%) |   2676     188    4705   2800 |   86.06        0.57
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /flags/load                                                                           460    490    510    520    640    660    730    780    790    790    790   1000
+POST     /flags/sync                                                                          3300   3900   4200   4400   4500   4700   4700   4700   4700   4700   4700   5000
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                           2800   3800   4100   4200   4500   4700   4700   4700   4700   4700   4700   6000
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+40                 POST /flags/sync: ConnectionError(ProtocolError('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+

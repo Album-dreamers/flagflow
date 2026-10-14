@@ -1,0 +1,25 @@
+[2026-10-12 18:54:53,959] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Starting Locust 2.46.7
+[2026-10-12 18:54:54,018] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_cd2b97e3c220436a8d061a98bced1462 (index 0) reported as ready. 1 workers connected.
+[2026-10-12 18:54:54,019] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_bf1285637d1a4e4cbc170bcfcaf6f2f7 (index 1) reported as ready. 2 workers connected.
+[2026-10-12 18:54:55,008] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Run time limit set to 60 seconds
+[2026-10-12 18:54:55,009] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Sending spawn jobs of 2000 users at 100.00 spawn rate to 2 ready workers
+[2026-10-12 18:55:14,146] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: All users spawned: {"StreamUser": 2000} (2000 total users)
+[2026-10-12 18:55:55,009] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: --run-time limit reached, shutting down
+[2026-10-12 18:55:55,011] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 18:55:55,011] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 18:55:55,410] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 18:55:55,411] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_bf1285637d1a4e4cbc170bcfcaf6f2f7' (index 1) quit. 0 workers ready.
+[2026-10-12 18:55:55,477] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 18:55:55,477] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_cd2b97e3c220436a8d061a98bced1462' (index 0) quit. 0 workers ready.
+[2026-10-12 18:55:55,478] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: The last worker quit, stopping test.
+[2026-10-12 18:55:56,013] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                         0     0(0.00%) |      0       0       0      0 |    0.00        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+

@@ -1,0 +1,28 @@
+[2026-10-12 19:28:06,509] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Starting Locust 2.46.7
+[2026-10-12 19:28:06,566] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_b7870dddfe9445a38326b6e6d0d130f1 (index 0) reported as ready. 1 workers connected.
+[2026-10-12 19:28:06,567] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_8c01f6e2d3b04e0c91a287a430e8961b (index 1) reported as ready. 2 workers connected.
+[2026-10-12 19:28:07,556] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Run time limit set to 71 seconds
+[2026-10-12 19:28:07,557] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Sending spawn jobs of 300 users at 100.00 spawn rate to 2 ready workers
+[2026-10-12 19:28:09,677] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: All users spawned: {"StreamUser": 300} (300 total users)
+[2026-10-12 19:29:18,557] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: --run-time limit reached, shutting down
+[2026-10-12 19:29:18,559] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:29:18,559] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:29:18,874] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_b7870dddfe9445a38326b6e6d0d130f1' (index 0) quit. 0 workers ready.
+[2026-10-12 19:29:18,876] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:29:18,897] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:29:18,899] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Worker 'iZbp1hlheb0hyu585aw5f4Z_8c01f6e2d3b04e0c91a287a430e8961b' (index 1) quit. 0 workers ready.
+[2026-10-12 19:29:18,900] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: The last worker quit, stopping test.
+[2026-10-12 19:29:19,559] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /flags/sync                                                                     2100     0(0.00%) |    929      62    1518   1000 |   81.85        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      2100     0(0.00%) |    929      62    1518   1000 |   81.85        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /flags/sync                                                                          1000   1100   1200   1200   1300   1400   1400   1400   1500   1500   1500   2100
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                           1000   1100   1200   1200   1300   1400   1400   1400   1500   1500   1500   2100
+

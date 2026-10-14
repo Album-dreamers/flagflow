@@ -1,0 +1,25 @@
+[2026-10-12 19:14:11,269] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Starting Locust 2.46.7
+[2026-10-12 19:14:11,330] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_db4dfd843906401f9cfe669e64bf63c1 (index 0) reported as ready. 1 workers connected.
+[2026-10-12 19:14:11,338] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_0552b49990cc4e2884d07b826b5a6205 (index 1) reported as ready. 2 workers connected.
+[2026-10-12 19:14:11,340] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: iZbp1hlheb0hyu585aw5f4Z_3c653f4bbbbc472a88acd6c706418745 (index 2) reported as ready. 3 workers connected.
+[2026-10-12 19:14:12,323] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Run time limit set to 100 seconds
+[2026-10-12 19:14:12,324] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Sending spawn jobs of 10000 users at 200.00 spawn rate to 3 ready workers
+[2026-10-12 19:15:01,678] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: All users spawned: {"StreamUser": 10000} (10000 total users)
+[2026-10-12 19:15:52,324] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: --run-time limit reached, shutting down
+[2026-10-12 19:15:52,325] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:15:52,325] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:15:52,335] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.runners: Got quit message from master, shutting down...
+[2026-10-12 19:15:53,329] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                         0     0(0.00%) |      0       0       0      0 |    0.00        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+
+[2026-10-12 19:15:54,141] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:15:54,150] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)
+[2026-10-12 19:15:54,287] iZbp1hlheb0hyu585aw5f4Z/INFO/locust.main: Shutting down (exit code 0)

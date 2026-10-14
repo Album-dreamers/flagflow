@@ -1,0 +1,45 @@
+debug: false
+test_environ: true
+
+app:
+  port: 8080
+  host: 0.0.0.0
+  reload: False
+
+http:
+  port: 8081
+  host: 0.0.0.0
+  reload: False
+
+logging:
+  level_app: warning
+  level_libs: warning
+  handlers: [console]
+  syslog_app: null
+  syslog_facility: null
+  syslog_mapping: null
+  syslog_defaults: null
+
+postgres:
+  host: 127.0.0.1
+  port: 54329
+  database: featureflags-dev
+  timeout: 10
+
+# Dummy values — test_environ=true overrides this with DummyLDAP at the
+# DI layer. The block has to exist only so the root validator sees at
+# least one auth method configured.
+ldap:
+  host: ldap://test
+  base_dn: dc=test
+
+instrumentation:
+  prometheus_port: null
+
+sentry:
+  enabled: false
+  dsn: null
+  env: local
+  enable_tracing: true
+  traces_sample_rate: 1
+  shutdown_timeout: 1
