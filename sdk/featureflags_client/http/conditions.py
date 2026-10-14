@@ -91,9 +91,22 @@ def percent(name: str, value: Any, seed: str = "") -> Callable:
 
 
 def regexp(name: str, value: Any) -> Callable:
+    try:
+        pattern = re.compile(value)
+    except (re.error, TypeError) as exc:
+        # one broken rule must not stop the rest of the configuration from
+        # being applied; like GrowthBook and Flagsmith, it just never matches
+        log.warning(
+            "Condition on %r has an invalid regular expression %r: %s",
+            name,
+            value,
+            exc,
+        )
+        return false
+
     @except_false
-    def proc(ctx: dict[str, Any], _re: re.Pattern = re.compile(value)) -> bool:
-        return _re.match(ctx.get(name, "")) is not None
+    def proc(ctx: dict[str, Any]) -> bool:
+        return pattern.match(ctx.get(name, "")) is not None
 
     return proc
 

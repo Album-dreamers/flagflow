@@ -65,6 +65,10 @@ class HttpState(BaseState):
     ) -> None:
         # Only move forward: a late response must not roll back the state.
         if version > self.version:
-            self._flags_state = update_flags_state(flags)
-            self._values_state = update_values_state(values)
+            # Compile both before replacing either: a failure must leave
+            # flags, values and version as they were, not half updated.
+            flags_state = update_flags_state(flags)
+            values_state = update_values_state(values)
+            self._flags_state = flags_state
+            self._values_state = values_state
             self.version = version
