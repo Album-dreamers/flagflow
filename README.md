@@ -146,6 +146,28 @@ aiopg 默认自动提交，改规则、版本号加一、写变更日志是分�
 
 ## 运行
 
+### 本地启动
+
+需要 Docker（带 Compose v2 插件）和 Node.js 18+。在 `server/` 下执行；行尾注释是对应的 [lets](https://lets-cli.org/) 命令，不装 lets 也能用。
+
+```bash
+cd server
+export BUILD_VERSION=dev
+docker build --target dev -t featureflags-server-dev .         # lets build-dev
+docker compose up -d --wait postgres                           # lets postgres（前台运行）
+docker compose run --rm backend python3 -m featureflags alembic -- upgrade head
+                                                               # lets apply-migrations-dev
+(cd ui && npm ci && npm run build -- --outDir ../featureflags/web/static)
+docker compose up -d web http                                  # lets run（前台运行）
+```
+
+- 管理后台：<http://localhost:8080>。本地配置（`configs/local.yaml`）开着 `test_environ`，任意用户名和密码都能登录。
+- 客户端 API：<http://localhost:8081>。SDK 连这个地址，`/flags/stream` 也在这里。
+
+停止：`docker compose down`；连数据一起删：`docker compose down -v`。
+
+### 测试
+
 ```bash
 # 服务端测试：沿用上游的 lets + Docker，PostgreSQL 13 跑在容器里（CI 也是这样跑的）
 cd server && lets test

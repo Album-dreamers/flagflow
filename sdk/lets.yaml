@@ -48,51 +48,51 @@ commands:
     depends: [ build-test ]
     cmd: |
       export ARGS="$@"
-      docker-compose run --rm test
+      docker compose run --rm test
 
   ishell:
     description: Run app with ipython
     depends: [ build-examples ]
-    cmd: docker-compose run --rm ishell
+    cmd: docker compose run --rm ishell
 
   gen-docs:
     description: generate docs
     depends: [ build-docs ]
-    cmd: docker-compose run --rm docs
+    cmd: docker compose run --rm docs
 
   ruff:
     description: Run ruff and fix errors
     depends: [ build-dev ]
     cmd: |
-      docker-compose run -T --rm featureflags-client \
+      docker compose run -T --rm featureflags-client \
         pdm run ruff ${LETS_COMMAND_ARGS}
 
   ruff-diff:
     description: Run ruff to check diff
     depends: [ build-dev ]
     cmd: |
-      docker-compose run -T --rm featureflags-client \
+      docker compose run -T --rm featureflags-client \
         pdm run ruff-diff ${LETS_COMMAND_ARGS}
 
   mypy:
     description: Run mypy
     depends: [ build-dev ]
     cmd: |
-      docker-compose run -T --rm featureflags-client \
+      docker compose run -T --rm featureflags-client \
         pdm run mypy ${LETS_COMMAND_ARGS}
 
   black:
     description: Run black
     depends: [ build-dev ]
     cmd: |
-      docker-compose run -T --rm featureflags-client \
+      docker compose run -T --rm featureflags-client \
         pdm run black ${LETS_COMMAND_ARGS}
 
   fmt:
     description: Run black and ruff
     depends: [ build-dev ]
     cmd: |
-      docker-compose run -T --rm featureflags-client \
+      docker compose run -T --rm featureflags-client \
         pdm run fmt
 
   release:

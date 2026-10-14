@@ -59,19 +59,19 @@ commands:
     description: Run whole application
     depends:
       - build-dev
-    cmd: docker-compose up web client
+    cmd: docker compose up web http
 
   web:
     description: Run web server
     depends:
       - build-dev
-    cmd: docker-compose up web
+    cmd: docker compose up web
 
   http:
     description: Run http server
     depends:
       - build-dev
-    cmd: docker-compose up http
+    cmd: docker compose up http
 
   test:
     description: Run tests
@@ -83,11 +83,11 @@ commands:
 
   ldap:
     description: Run ldap server
-    cmd: docker-compose up ldap
+    cmd: docker compose up ldap
 
   postgres:
     description: Run postgres
-    cmd: docker-compose up postgres
+    cmd: docker compose up postgres
 
   postgres-test:
     description: Run postgres test db
@@ -97,13 +97,13 @@ commands:
     description: Apply migrations to local postgres
     depends: [build-dev]
     cmd: |
-      docker-compose run --rm backend python3 -m featureflags alembic -- upgrade head
+      docker compose run --rm backend python3 -m featureflags alembic -- upgrade head
 
   rollback-migration-dev:
     description: Rollback migrations to local postgres
     depends: [build-dev]
     cmd: |
-      docker-compose run --rm backend python3 -m featureflags alembic -- downgrade -1
+      docker compose run --rm backend python3 -m featureflags alembic -- downgrade -1
 
   create-migration:
     description: |
@@ -111,27 +111,27 @@ commands:
       Example: lets create-migration add_date_created_column_to_user_table
     depends: [build-dev]
     cmd: |
-      docker-compose run --rm backend python3 -m featureflags alembic -- revision --autogenerate -m ${LETS_COMMAND_ARGS}
+      docker compose run --rm backend python3 -m featureflags alembic -- revision --autogenerate -m ${LETS_COMMAND_ARGS}
 
   apply-seeds-dev:
     description: Apply seeds to local postgres
     cmd: |
-      docker-compose exec postgres \
+      docker compose exec postgres \
         psql -U postgres -d featureflags -f /var/lib/postgresql/seeds/seeds.sql
 
   ishell:
     description: Run app with ipython
     depends: [build-dev]
-    cmd: docker-compose run --rm ishell
+    cmd: docker compose run --rm ishell
 
   psql:
-    cmd: docker-compose exec postgres psql -U postgres -d featureflags
+    cmd: docker compose exec postgres psql -U postgres -d featureflags
 
   gen-docs:
     description: Generate docs
     depends: [build-docs]
     cmd: |
-      docker-compose run --rm docs \
+      docker compose run --rm docs \
         sphinx-build -a -b html docs docs/build
       echo "Docs generated at docs/build/index.html"
 
@@ -153,32 +153,32 @@ commands:
     description: Run ruff and fix errors
     depends: [build-dev]
     cmd: |
-      docker-compose run -T --rm backend ruff check featureflags --fix ${LETS_COMMAND_ARGS}
+      docker compose run -T --rm backend ruff check featureflags --fix ${LETS_COMMAND_ARGS}
 
   ruff-diff:
     description: Run ruff to check diff
     depends: [build-dev]
     cmd: |
-      docker-compose run -T --rm backend ruff check featureflags ${LETS_COMMAND_ARGS}
+      docker compose run -T --rm backend ruff check featureflags ${LETS_COMMAND_ARGS}
 
   mypy:
     description: Run mypy
     depends: [build-dev]
     cmd: |
-      docker-compose run -T --rm backend mypy featureflags ${LETS_COMMAND_ARGS}
+      docker compose run -T --rm backend mypy featureflags ${LETS_COMMAND_ARGS}
 
   black:
     description: Run black
     depends: [build-dev]
     cmd: |
-      docker-compose run -T --rm backend black featureflags ${LETS_COMMAND_ARGS}
+      docker compose run -T --rm backend black featureflags ${LETS_COMMAND_ARGS}
 
   fmt:
     description: Run black and ruff
     depends: [build-dev]
     cmd: |
-      docker-compose run -T --rm backend black featureflags
-      docker-compose run -T --rm backend ruff check featureflags --fix
+      docker compose run -T --rm backend black featureflags
+      docker compose run -T --rm backend ruff check featureflags --fix
 
   release:
     description: |
