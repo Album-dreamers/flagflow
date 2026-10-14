@@ -346,3 +346,29 @@ async def test_new_flags_are_stamped_when_registered(flags_repo, db_engine):
             select([Flag.created_timestamp]).where(Flag.name == "NEW"),
         )
     assert created >= before
+
+
+@pytest.mark.asyncio
+async def test_registering_a_value_moves_the_version(db_engine, graph_engine):
+    # a new value changes what /load and /sync return (clients use its
+    # server default), so caches on other instances and SDKs holding the
+    # current version must be moved on, not keep serving the list without it
+    instance_a = FlagsRepository(db_engine=db_engine, graph_engine=graph_engine)
+    before = await instance_a.load(
+        PreloadFlagsRequest(project="registering", version=0, flags=["BASE"])
+    )
+
+    request = PreloadFlagsRequest(
+        project="registering",
+        version=before.version,
+        flags=["BASE"],
+        values=[("PROMPT", "first-default")],
+    )
+    from_a = await instance_a.load(request)
+    instance_b = FlagsRepository(db_engine=db_engine, graph_engine=graph_engine)
+    from_b = await instance_b.load(request)
+
+    assert from_a.version > before.version
+    assert [v.name for v in from_a.values] == ["PROMPT"]
+    assert from_b.version == from_a.version
+    assert [v.name for v in from_b.values] == ["PROMPT"]

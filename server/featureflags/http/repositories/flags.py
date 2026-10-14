@@ -87,9 +87,8 @@ class FlagsRepository:
         # After a change every client syncs to the same version at once:
         # build its flags once (concurrent requests share the build).
         # Entries never go stale: a version is read before its flags, so an
-        # entry can only hold newer data than its key. Registering a flag
-        # doesn't bump the version and may be missing from an entry, which
-        # clients treat the same (an unconfigured flag uses the default).
+        # entry can only hold newer data than its key, and registering new
+        # flags or values moves the version (see prepare_flags_project).
         self._project_state = alru_cache(maxsize=256)(self._load_project_state)
 
     async def _load_project_state(

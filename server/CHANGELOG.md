@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `d7e2a9b4c1f6`), so they only go up: a project deleted and created again
   continues above its old versions, which SDKs, their snapshots and the SSE
   hub would otherwise ignore. New projects start above 0.
+- Registering new flags or values through `/flags/load` moves the project
+  version. It did not, so instances that had cached the project kept
+  serving it without the new value while new instances included it, and
+  SDKs fell back to different defaults for the same request.
 - `/flags/load` registers variables, flags and values with one query per
   kind and refreshes "last reported" at most once a minute per row. It ran
   two queries per flag, every one updating the same rows, so clients
