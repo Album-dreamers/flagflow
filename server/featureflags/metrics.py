@@ -29,6 +29,9 @@ def configure_metrics(
 
         if app:
             instrumentator = Instrumentator(
+                # SSE streams stay open for minutes: time them to the response
+                # start, not to the end, or they swamp the latency buckets
+                should_exclude_streaming_duration=True,
                 should_instrument_requests_inprogress=True,
                 inprogress_labels=True,
                 excluded_handlers=["/metrics", "/~health"],

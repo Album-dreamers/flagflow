@@ -58,6 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the 10-connection pool timed out and most streams never got an event).
 
 ### Fixed
+- With metrics enabled (`instrumentation.prometheus_port`) every request
+  failed with 500: prometheus-fastapi-instrumentator 6.1 does not know the
+  routes of Starlette 1.x. Now requires 8.1; SSE streams are timed to the
+  start of the response, not to its end minutes later.
 - `saveFlag` / `saveValue` reject a regular expression check that does not
   compile (as `[`) instead of storing it for SDKs to fail on.
 - Mutations in one GraphQL request no longer share change tracking: a

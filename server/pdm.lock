@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "lint", "sentry", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:f1eabb653231bf1f34697b092d4b25a9f00ca21b19f2a74b45b97f2256263853"
+content_hash = "sha256:835895685c2dade3594a85714ce49fdf20ab4b35494d040dee47ad6ff4240289"
 
 [[metadata.targets]]
 requires_python = ">=3.11"
@@ -1159,17 +1159,17 @@ files = [
 
 [[package]]
 name = "prometheus-fastapi-instrumentator"
-version = "6.1.0"
-requires_python = ">=3.7.0,<4.0.0"
-summary = "Instrument your FastAPI with Prometheus metrics."
+version = "8.1.0"
+requires_python = ">=3.10"
+summary = "Instrument your FastAPI app with Prometheus metrics"
 groups = ["default"]
 dependencies = [
-    "fastapi<1.0.0,>=0.38.1",
     "prometheus-client<1.0.0,>=0.8.0",
+    "starlette<2.0.0,>=1.0.0",
 ]
 files = [
-    {file = "prometheus_fastapi_instrumentator-6.1.0-py3-none-any.whl", hash = "sha256:2279ac1cf5b9566a4c3a07f78c9c5ee19648ed90976ab87d73d672abc1bfa017"},
-    {file = "prometheus_fastapi_instrumentator-6.1.0.tar.gz", hash = "sha256:1820d7a90389ce100f7d1285495ead388818ae0882e761c1f3e6e62a410bdf13"},
+    {file = "prometheus_fastapi_instrumentator-8.1.0-py3-none-any.whl", hash = "sha256:b9f40b2cff3f7891ca0610b3ae4fc6ec723fd326b04bb659819aaeb821a0fc7d"},
+    {file = "prometheus_fastapi_instrumentator-8.1.0.tar.gz", hash = "sha256:b77f3043665e8d28e2bbd21017506195a43d9adf1d402d01bf95b494b7e560e1"},
 ]
 
 [[package]]
