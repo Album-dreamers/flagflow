@@ -62,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed with 500: prometheus-fastapi-instrumentator 6.1 does not know the
   routes of Starlette 1.x. Now requires 8.1; SSE streams are timed to the
   start of the response, not to its end minutes later.
+- **UI**: saving a value showed no message at all, so a rejected save (a
+  version conflict, an invalid regular expression) looked like nothing had
+  happened. It now reports success or the error, as saving a flag does.
 - `saveFlag` / `saveValue` reject a regular expression check that does not
   compile (as `[`) instead of storing it for SDKs to fail on.
 - Mutations in one GraphQL request no longer share change tracking: a

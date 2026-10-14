@@ -487,7 +487,17 @@ export const useValueActions = (value) => {
       variables: {
         id: value.id,
       }
-    }]
+    }],
+    onCompleted: (data) => {
+      if (data.saveValue && data.saveValue.errors) {
+        message.error(data.saveValue.errors.join(', '));
+      } else {
+        message.success(`Value "${value.name}" saved successfully`);
+      }
+    },
+    onError: (error) => {
+      message.error(`Error saving value "${value.name}": ${error.message}`);
+    }
   });
   const [resetValueMut] = useMutation(RESET_VALUE_MUTATION, {
     variables: {
