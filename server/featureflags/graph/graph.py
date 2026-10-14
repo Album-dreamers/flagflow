@@ -1348,8 +1348,10 @@ async def _apply_flag_operations(
                         changes=ctx[GraphContext.CHANGES],
                     )
                 case Operation.ADD_CHECK:
+                    check = AddCheckOp(operation_payload)
+                    actions.validate_check(check)
                     new_ids = await actions.add_check(
-                        AddCheckOp(operation_payload),
+                        check,
                         conn=conn,
                         dirty=ctx[GraphContext.DIRTY_PROJECTS],
                     )
@@ -1397,7 +1399,7 @@ async def save_flag(ctx: dict, options: dict) -> SaveFlagResult:
 
     try:
         await _apply_flag_operations(ctx, operations, options.get("version"))
-    except actions.VersionConflictError as exc:
+    except actions.SaveRejectedError as exc:
         return SaveFlagResult((str(exc),))
 
     notifications = ctx[GraphContext.NOTIFICATIONS]
@@ -1501,8 +1503,10 @@ async def _apply_value_operations(
                         changes=ctx[GraphContext.VALUES_CHANGES],
                     )
                 case Operation.ADD_CHECK:
+                    check = AddCheckOp(operation_payload)
+                    actions.validate_check(check)
                     new_ids = await actions.add_check(
-                        AddCheckOp(operation_payload),
+                        check,
                         conn=conn,
                         dirty=ctx[GraphContext.DIRTY_PROJECTS],
                     )
@@ -1554,7 +1558,7 @@ async def save_value(ctx: dict, options: dict) -> SaveValueResult:
 
     try:
         await _apply_value_operations(ctx, operations, options.get("version"))
-    except actions.VersionConflictError as exc:
+    except actions.SaveRejectedError as exc:
         return SaveValueResult((str(exc),))
 
     notifications = ctx[GraphContext.NOTIFICATIONS]

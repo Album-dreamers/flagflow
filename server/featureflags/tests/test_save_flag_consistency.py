@@ -10,7 +10,15 @@ from sqlalchemy import func, select
 
 from featureflags.graph import actions
 from featureflags.graph.types import Action
-from featureflags.models import Changelog, Flag, Operator, Project, Value
+from featureflags.models import (
+    Changelog,
+    Condition,
+    Flag,
+    Operator,
+    Project,
+    Value,
+    ValueCondition,
+)
 from featureflags.tests.state import (
     mk_auth_user,
     mk_check,
@@ -333,3 +341,81 @@ async def test_two_saves_in_one_request_are_independent(
     assert await flag_state(conn, flag_a) == (True, 1)
     assert await flag_state(conn, flag_b) == (True, 1)
     assert await changelog_actions(conn, flag_a) == [[Action.ENABLE_FLAG]]
+
+
+def regexp_check(variable, local_id):
+    return {
+        "type": "add_check",
+        "payload": {
+            "local_id": local_id,
+            "variable": str(variable.id),
+            "operator": Operator.REGEXP.value,
+            "kind": "value_string",
+            "value_string": "[",
+        },
+    }
+
+
+async def test_invalid_regexp_is_rejected_for_flags(db_engine, conn, graphql):
+    # SDKs compile rules when they sync; a broken pattern must not get in
+    user = await mk_auth_user(db_engine)
+    project = await mk_project(db_engine, version=0)
+    flag = await mk_flag(db_engine, enabled=True, project=project)
+    variable = await mk_variable(db_engine, project=project)
+    check = {"scope": "s", "value": "check"}
+    operations = [
+        regexp_check(variable, check),
+        {
+            "type": "add_condition",
+            "payload": {
+                "flag_id": str(flag.id),
+                "local_id": {"scope": "s", "value": "condition"},
+                "checks": [{"local_id": check}],
+            },
+        },
+    ]
+
+    result = await graphql(user, SAVE_FLAG, operations=operations, version=0)
+
+    errors = save_errors(result)
+    assert errors and "regular expression" in errors[0]
+    assert await flag_state(conn, flag) == (True, 0)
+    conditions = await scalar(
+        conn,
+        select([func.count()])
+        .select_from(Condition.__table__)
+        .where(Condition.flag == flag.id),
+    )
+    assert conditions == 0
+
+
+async def test_invalid_regexp_is_rejected_for_values(db_engine, conn, graphql):
+    user = await mk_auth_user(db_engine)
+    project = await mk_project(db_engine, version=0)
+    value = await mk_value(db_engine, project=project)
+    variable = await mk_variable(db_engine, project=project)
+    check = {"scope": "s", "value": "check"}
+    operations = [
+        regexp_check(variable, check),
+        {
+            "type": "add_value_condition",
+            "payload": {
+                "value_id": str(value.id),
+                "local_id": {"scope": "s", "value": "condition"},
+                "checks": [{"local_id": check}],
+                "value_condition_override": "x",
+            },
+        },
+    ]
+
+    result = await graphql(user, SAVE_VALUE, operations=operations, version=0)
+
+    errors = save_errors(result, "saveValue")
+    assert errors and "regular expression" in errors[0]
+    conditions = await scalar(
+        conn,
+        select([func.count()])
+        .select_from(ValueCondition.__table__)
+        .where(ValueCondition.value == value.id),
+    )
+    assert conditions == 0

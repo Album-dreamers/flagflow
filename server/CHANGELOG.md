@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the 10-connection pool timed out and most streams never got an event).
 
 ### Fixed
+- `saveFlag` / `saveValue` reject a regular expression check that does not
+  compile (as `[`) instead of storing it for SDKs to fail on.
 - Mutations in one GraphQL request no longer share change tracking: a
   rejected save was audited by the next save in the request, and a second
   save re-checked the first one's flags and was rejected as a conflict.

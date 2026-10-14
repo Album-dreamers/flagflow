@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -287,8 +288,27 @@ async def disable_condition(
         changes.add(flag_id, Action.DISABLE_CONDITION)
 
 
-class VersionConflictError(Exception):
+class SaveRejectedError(Exception):
+    """A save refused for a reason shown to the user; nothing is written."""
+
+
+class VersionConflictError(SaveRejectedError):
     """The flag or value was changed after the client loaded it."""
+
+
+class InvalidCheckError(SaveRejectedError):
+    """A check SDKs could not compile."""
+
+
+def validate_check(op: AddCheckOp) -> None:
+    # Not inside add_check: @track would count a user's typo as an error.
+    if Operator(op.operator) is Operator.REGEXP:
+        try:
+            re.compile(op.value_string or "")
+        except re.error as exc:
+            raise InvalidCheckError(
+                f"Invalid regular expression {op.value_string!r}: {exc}"
+            ) from exc
 
 
 async def _bump_versions(
