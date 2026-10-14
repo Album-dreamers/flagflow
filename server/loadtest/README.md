@@ -29,7 +29,8 @@ loadtest/run.sh 1000 2 10 3
 `RATE` per second, publishes once they are all connected, and prints the
 report.
 
-The runs behind the numbers in the root README are in
+The runs behind the numbers in
+[`docs/benchmarks.md`](../../docs/benchmarks.md) are in
 [`results/`](results/README.md), with the machine and the commands.
 
 `FAULT` runs a command between two batches of versions, e.g. restarting

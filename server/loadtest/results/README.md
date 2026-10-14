@@ -1,6 +1,7 @@
 # Load test results
 
-Raw data behind the numbers in the root README. Recompute any of them with
+Raw data behind the numbers in [`docs/benchmarks.md`](../../../docs/benchmarks.md)
+and the root README. Recompute any of them with
 `report.py` (from `server/`):
 
 ```bash
@@ -28,7 +29,7 @@ awk -F, 'NR > 1 && $2 > m { m = $2 } END { print m }' loadtest/results/fanout-10
 All with `loadtest/run.sh USERS PROCESSES VERSIONS INTERVAL` and the
 environment shown.
 
-| Directory | README row | Command |
+| Directory | Row in benchmarks.md | Command |
 |---|---|---|
 | `fanout-1000` | fan-out, 1,000 | `LOADTEST_PRELOAD=0 LOADTEST_SYNC=0 RATE=100 run.sh 1000 2 10 2` |
 | `fanout-2000` | fan-out, 2,000 | `LOADTEST_PRELOAD=0 LOADTEST_SYNC=0 RATE=100 run.sh 2000 2 10 2` |
