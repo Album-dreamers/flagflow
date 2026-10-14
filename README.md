@@ -166,6 +166,34 @@ docker compose up -d web http                                  # lets run（前�
 
 停止：`docker compose down`；连数据一起删：`docker compose down -v`。
 
+### 示例：Prompt 与模型灰度
+
+[`sdk/examples/http/prompt_rollout.py`](sdk/examples/http/prompt_rollout.py) 用一个功能值 `LLM_VARIANT` 选择 Prompt 模板和模型，在管理后台按用户比例放量、扩大、回滚，不用重新部署。在仓库根目录运行（需要 [uv](https://docs.astral.sh/uv/)）：
+
+```bash
+uv run --no-project --with "./sdk[httpx]" sdk/examples/http/prompt_rollout.py
+```
+
+脚本启动时注册项目 `llm-demo`，之后每当 2,000 个模拟用户的分配发生变化就打印一行。在管理后台打开 `llm-demo` → Values → `LLM_VARIANT`：
+
+1. 加一个条件：`user.id` `percent` `10`，值填 `v2`；打开开关，点 apply。约 10% 的用户切到 v2。
+2. 把 10 改成 50，apply。原来在 v2 的用户全部留在 v2，扩量只会加人。用户落在哪个桶只取决于用户 ID 和值的名字，与百分比无关。
+3. 关掉开关，apply：全部回到 v1。
+
+一次实际运行的输出（从全新克隆按上面的步骤启动，在后台依次操作这三步；每次 apply 后不到 1 秒就打印出新的一行）：
+
+```text
+v1: 100.0% | user 1 -> {'model': 'small-model', 'prompt': 'Answer the question: 2+2?'}
+v1: 89.6%, v2: 10.4% | user 1 -> {'model': 'large-model', 'prompt': 'Think step by step, then answer briefly: 2+2?'}
+v1: 49.2%, v2: 50.8% (kept v2: 208 of 208) | user 1 -> {'model': 'large-model', 'prompt': 'Think step by step, then answer briefly: 2+2?'}
+v1: 100.0% (kept v2: 0 of 1016) | user 1 -> {'model': 'small-model', 'prompt': 'Answer the question: 2+2?'}
+```
+
+两个设计点：
+
+- Prompt 和模型放在**一个**值里，由代码映射成（模板，模型）。如果拆成两个值、各放 10%，因为分桶以值的名字为种子，两个值会选中不同的用户，一部分用户会拿到"新 Prompt + 旧模型"的组合。
+- 值在后台是自由文本，填错（比如 `v3`）时回退到 v1 并记一条警告，不会让请求报错。
+
 ### 测试
 
 ```bash
